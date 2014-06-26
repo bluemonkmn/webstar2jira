@@ -16,7 +16,7 @@ if (defined($dbh))
 	$dbh->{LongReadLen} = 50000;
 	
 	my $query = <<'~';
-	select 'SDR-' + cast(SDRNum as varchar(50)) [key]
+	select 'JIT-' + cast(SDRNum as varchar(50)) [key]
 	, case Severity when 'A' then 'P1' when 'B' then 'P2' when 'C' then 'P3' when 'D' then 'P4' else null end priority
 	, case Status when 'W' then 'Awaiting Approval' when 'C' then 'Resolved' else 'Accepted' end status
 	, ReasonCode resolution
@@ -38,7 +38,7 @@ if (defined($dbh))
 	my $sth = $dbh->prepare($query);
 	$sth->execute() or die 'Failed to execute SDR query.';
 
-	my $json = JSON->new->allow_nonref->pretty;
+	my $json = JSON->new->allow_nonref->pretty->ascii;
 	my @sdrArray;
 	my %sdrLookup = ();
 	my %component_list = ();
@@ -57,7 +57,7 @@ if (defined($dbh))
 	$sth->finish;
 
 	$query = <<'~';
-	select 'SDR-' + cast(SDR_Num as varchar(50)) [issueKey]
+	select 'JIT-' + cast(SDR_Num as varchar(50)) [issueKey]
 	,convert(varchar(25), EntryDate, 126) created
 	,isnull(p.NTUserName, null) author
 	,LineType
@@ -86,23 +86,27 @@ if (defined($dbh))
 		}
 
 		my $histTo;
-		my $reason;
+		my $histToStr;
+		my $reasonTo;
+		my $reasonToStr;
+		
 		given (lc $comments->{LineType})
 		{
-			when ('reported') {$histTo = 1;}
-			when ('wait') {$histTo = 3;}
-			when ('closed') {$histTo = 3;}
-			when ('open') {$histTo = 4;}
-			default {undef $histTo;}
+			when ('reported') {$histTo = 1; $histToStr = 'Open';}
+			when ('wait') {$histTo = 3; $histToStr = 'Accepted';}
+			when ('closed') {$histTo = 6; $histToStr = 'Resolved';}
+			when ('open') {$histTo = 1; $histToStr = 'Open';}
+			default {undef $histTo; undef $histToStr;}
 		}
 		given (lc $comments->{ReasonCode})
 		{
-			when ('fixed') {$reason = 'Fixed';}
-			when ('duplicate') {$reason = 'Duplicate';}			
-			when ('no fix') {$reason = 'Won\'t Fix';}
-			when (['no problem', 'mystery']) {$reason = 'Cannot Reproduce';}
-			when ('need more info') {$reason = 'Incomplete';}
-			default { undef $reason; }
+			when ('fixed') {$reasonTo = 1; $reasonToStr = 'Fixed';}
+			when ('no problem') {$reasonTo = 2; $reasonToStr = 'Works as Designed';}
+			when ('duplicate') {$reasonTo = 3; $reasonToStr = 'Duplicate';}			
+			when ('need more info') {$reasonTo = 4; $reasonToStr = 'Incomplete';}
+			when ('mystery') {$reasonTo = 5; $reasonToStr = 'Cannot Reproduce';}
+			when ('no fix') {$reasonTo = 7; $reasonToStr = 'No plans to fix';}
+			default { undef $reasonTo; undef $reasonToStr;}
 		}
 		if ($histTo)
 		{		
@@ -114,16 +118,33 @@ if (defined($dbh))
 					fieldType=>'jira',
 					field=>'status',
 					to=>$histTo,
-					toString=>$comments->{LineType}
+					toString=>$histToStr
 					}
 				]
 			};
-			if ($reason)
+			if ($reasonTo)
 			{
-				push $history->{'items'}, {fieldType=>'jira',field=>'resolution',toString=>$reason};
+				push $history->{'items'}, {
+					fieldType=>'jira',
+					field=>'resolution',
+					to=>$reasonTo,
+					toString=>$reasonToStr
+				};
 			}
 			if ($sdr->{'history'})
 			{
+				for (0 .. $#{$history->{'items'}})
+				{
+					my $histItem = $history->{'items'}->[$_];
+					my $prevItem = $sdr->{'history'}->[-1]->{'items'}->[$_];
+					$histItem->{from} = $prevItem->{to};
+					$histItem->{fromString} = $prevItem->{toString};
+				}
+				if ($#{$history->{'items'}} > 0 && not defined $history->{'items'}->[1]->{from})
+				{
+					$history->{'items'}->[1]->{from} = -1;
+					$history->{'items'}->[1]->{fromString} = "Unresolved";
+				}
 				push $sdr->{'history'}, $history;
 			}
 			else
