@@ -23,16 +23,16 @@ select 'JIT-' + cast(SDRNum as varchar(50)) [key]
 , ReasonCode resolution
 , us.NTUserName reporter
 , u.NTUserName assignee
-, convert(varchar(25), s.Date_Reported, 126) created
+, convert(varchar(25), DATEADD(hour, -5, s.Date_Reported), 126) created
 , s.Version affectedVersions
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
-, REPLACE(cast(ProblemDetail as varchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
+, REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
 , 'Bug' issueType
 from STAR..sdr s
 left join STAR..UserInfo u on u.UserName = s.AssignedTo
 left join STAR..UserInfo us on us.UserName = s.Submitter
-where SDRNum in (57003, 57021, 57022, 57068)
+where SDRNum in (57003, 57021, 57022, 57068, 53762)
 ~
 #, convert(varchar(25), s.DateClosed, 126) resolved
 
@@ -50,7 +50,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$hashref->{'components'} = [$hashref->{'components'}];
 	$version_list{$hashref->{'affectedVersions'}} = 1;
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
-	$sdrLookup{$hashref->{'key'}} = $hashref;
+	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
 		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'S-' . $hashref->{SDRNum}}
 	];
@@ -61,17 +61,17 @@ while (my $hashref = $sth->fetchrow_hashref())
 $sth->finish;
 
 $query = <<'~';
-select 'JIT-' + cast(SDR_Num as varchar(50)) [issueKey]
-,convert(varchar(25), EntryDate, 126) created
+select SDR_Num [issueKey]
+,convert(varchar(25), DATEADD(hour, -5, EntryDate), 126) created
 ,isnull(p.NTUserName, l.Person) author
 ,LineType
 ,ReasonCode
-,REPLACE(cast([Description] as varchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
+,REPLACE(cast([Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
 ,hu.NTUserName HistoryUser
 from STAR..sdr_log l
 left join STAR..UserInfo p on l.Person = p.UserName
 left join STAR..UserInfo hu on l.ReasonCode = hu.UserName
-where SDR_Num in (57003, 57021, 57022, 57068)
+where SDR_Num in (57003, 57021, 57022, 57068, 53762)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -196,14 +196,14 @@ while (my $comments = $sth->fetchrow_hashref())
 		{
 			$comments->{'body'} = $comments->{LineType};
 		}
-		if ($comments->{'Description'})
-		{
-			$comments->{Description} =~ s/^\s*(.*?)\s*$/$1/;
-			$comments->{'body'} .= $comments->{Description};
-		}
 		if ($comments->{'ReasonCode'})
 		{
-			$comments->{'body'} .= $comments->{'ReasonCode'};
+			$comments->{'body'} .= ($comments->{'body'} ? ' ' : '') . '(' . $comments->{'ReasonCode'} . ')';
+		}
+		$comments->{Description} =~ s/^\s*(.*?)\s*$/$1/;
+		if ($comments->{'Description'})
+		{
+			$comments->{'body'} .= ($comments->{'body'} ? ': ' : '') . $comments->{Description};
 		}
 		if ($comments->{'body'})
 		{
@@ -223,6 +223,38 @@ while (my $comments = $sth->fetchrow_hashref())
 	delete $comments->{'HistoryUser'};
 	delete $comments->{'Description'};
 }
+$sth->finish;
+
+$query = <<'~';
+select sdr_no
+	, 'Customer '
+	+ case when isnull(CustWaiting, '0') = '1' then 'waiting' else 'reported' end
+	+ case when len(isnull(customer, '')) > 0 then ': '
+	+ replace(replace(rtrim(customer), char(10), ''), char(13), '') else '' end
+	+ case when len(isnull(cust_version, '')) > 0 then char(10) + 'At version: ' + cust_version else '' end
+	+ case when len(rtrim(notes)) > 0 then char(10) + ltrim(rtrim(isnull(notes,''))) else '' end body
+	, convert(varchar(25), dateadd(hour, -5, s.Date_Reported), 126) created
+from STAR..customer c
+left join STAR..sdr s on s.SDRNum = c.sdr_no
+where sdr_no in (57003, 57021, 57022, 57068, 53762)
+~
+
+$sth = $dbh->prepare($query);
+$sth->execute();
+
+while (my $hashref = $sth->fetchrow_hashref())
+{
+	my $sdr = $sdrLookup{$hashref->{sdr_no}};
+	if ($sdr->{comments})
+	{
+		push $sdr->{comments}, {body=>$hashref->{body}, created=>$hashref->{created}};
+	}
+	else
+	{
+		$sdr->{comments} = [{body=>$hashref->{body}, created=>$hashref->{created}}];
+	}
+}
+
 $sth->finish;
 
 $query = <<'~';
@@ -248,6 +280,8 @@ select
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 	,case SDRSeverity when 'A' then 'P1' when 'B' then 'P2' when 'C' then 'P3' when 'D' then 'P4' else null end priority
 	,r.DocoNotes
+	,convert(varchar(25), DATEADD(hour, -5, isnull(d.earliest, getdate())), 126) created
+	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
 from STAR..resolution r
 left join STAR..UserInfo a on r.Analyst = a.UserName
 left join STAR..UserInfo l on r.TeamLeader = l.UserName
@@ -257,7 +291,12 @@ select TransmittalID, count(*) SDRCount
 from STAR..Resolution_SDRs
 group by TransmittalID
 ) s on s.TransmittalID = r.TransmittalId
-where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922)
+left join
+(select TransmittalID, MIN(entrydate) earliest, MAX(entrydate) latest
+from STAR..trans_log
+group by TransmittalID) d
+on r.TransmittalId = d.TransmittalID
+where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -267,11 +306,12 @@ my %resolutions = ();
 while (my $hashref = $sth->fetchrow_hashref())
 {
 	my %resolution = %{$hashref};
-	($resolution{summary} = $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
+	($resolution{summary} = '[' . $resolution{affectedVersions} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
 	$resolution{components} = [$resolution{components}];
 	if ($resolution{DocoNotes})
 	{
 		$resolution{description} .= "\n" . $resolution{DocoNotes};
+		$resolution{labels} = ['documentation'];
 	}
 
 	@resolution{customFieldValues} = [
@@ -292,12 +332,12 @@ while (my $hashref = $sth->fetchrow_hashref())
 $sth->finish;
 
 $query = <<'~';
-select TransmittalID, convert(varchar(25), entrydate, 126) created
+select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) created
 ,isnull(u.NTUserName, xl.person) author, linetype,
-REPLACE(cast([description] as varchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
+REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 from STAR..trans_log xl
 left join STAR..UserInfo u on u.UserName = xl.person
-where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922)
+where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
 ~
 
 $sth = $dbh->prepare($query);
@@ -357,7 +397,7 @@ $query = <<'~';
 select TransmittalID, isnull(FileToShip, '') + CHAR(9) + isnull(FileChanged, '') + CHAR(9) 
 + isnull(RevisionLevelFrom, '') + '=>' + isnull(RevisionLevelTo, '')
 from STAR..FileChanges
-where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922)
+where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
 order by TransmittalID, FCIndex
 ~
 $sth = $dbh->prepare($query);
@@ -379,8 +419,8 @@ left join (
 select SDR_Num, TransmittalID, ROW_NUMBER() OVER (PARTITION BY TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs) s on s.TransmittalID = r.TransmittalId
 where SDR_Num is not null
-and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922)
-and s.SDR_Num in (57003, 57021, 57022, 57068)
+and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
+and s.SDR_Num in (57003, 57021, 57022, 57068, 53762)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -397,49 +437,49 @@ my %import = (projects => [{name=>'JSON Importer Test', key=>'JIT',
 	components=>[keys %component_list], versions=>[map({name=>$_}, keys %version_list)],
 	issues=>[values %sdrLookup, values %resolutions]}],
 	links=>\@links);
-#print $json->encode(\%import);
+print $json->encode(\%import);
 
-my %linkMap = ();
-my %issMap = ();
-foreach(@{$import{projects}->[0]->{issues}})
-{
-	$issMap{$_->{externalId}} = $_;
-}
-foreach (@links)
-{
-   $linkMap{$_->{sourceId}} = $_->{destinationId};
-}
-say 'parentKey,issueType,status,reporter,priority,description,key,component,ExternalID,assignee,summary,affectedVersion,Branch,resolution,created';
-foreach (@{$import{projects}->[0]->{issues}})
-{
-	my $branch;
-	my $externalId;
-	for (@{$_->{customFieldValues}})
-	{
-		my $custFld = $_;
-		given($custFld->{fieldName})
-		{
-			when ('Branch') {$branch = $custFld->{value};}
-			when ('ExternalID') {$externalId = $custFld->{value};}
-		}
-	}
-	CsvPrint ($issMap{$linkMap{$_->{externalId}}}{key},',');
-	CsvPrint ($_->{issueType},',');
-	CsvPrint ($_->{status},',');
-	CsvPrint ($_->{reporter},',');
-	CsvPrint ($_->{priority},',');
-	CsvPrint ($_->{description},',');
-	CsvPrint ($_->{key},',');
-	CsvPrint ($_->{components}->[0],',');
-	CsvPrint ($externalId,',');
-	CsvPrint ($_->{assignee},',');
-	CsvPrint ($_->{summary},',');
-	CsvPrint ($_->{affectedVersions}->[0],',');
-	CsvPrint ($branch,',');
-	CsvPrint ($_->{resolution},',');
-	CsvPrint ($_->{created});
-	print "\n";
-}
+# my %linkMap = ();
+# my %issMap = ();
+# foreach(@{$import{projects}->[0]->{issues}})
+# {
+	# $issMap{$_->{externalId}} = $_;
+# }
+# foreach (@links)
+# {
+   # $linkMap{$_->{sourceId}} = $_->{destinationId};
+# }
+# say 'parentKey,issueType,status,reporter,priority,description,key,component,ExternalID,assignee,summary,affectedVersion,Branch,resolution,created';
+# foreach (@{$import{projects}->[0]->{issues}})
+# {
+	# my $branch;
+	# my $externalId;
+	# for (@{$_->{customFieldValues}})
+	# {
+		# my $custFld = $_;
+		# given($custFld->{fieldName})
+		# {
+			# when ('Branch') {$branch = $custFld->{value};}
+			# when ('ExternalID') {$externalId = $custFld->{value};}
+		# }
+	# }
+	# CsvPrint ($issMap{$linkMap{$_->{externalId}}}{key},',');
+	# CsvPrint ($_->{issueType},',');
+	# CsvPrint ($_->{status},',');
+	# CsvPrint ($_->{reporter},',');
+	# CsvPrint ($_->{priority},',');
+	# CsvPrint ($_->{description},',');
+	# CsvPrint ($_->{key},',');
+	# CsvPrint ($_->{components}->[0],',');
+	# CsvPrint ($externalId,',');
+	# CsvPrint ($_->{assignee},',');
+	# CsvPrint ($_->{summary},',');
+	# CsvPrint ($_->{affectedVersions}->[0],',');
+	# CsvPrint ($branch,',');
+	# CsvPrint ($_->{resolution},',');
+	# CsvPrint ($_->{created});
+	# print "\n";
+# }
 
 $dbh->disconnect;
 
