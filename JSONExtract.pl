@@ -10,7 +10,7 @@ my $dbs = 'dbi:ODBC:DRIVER={SQL Server};SERVER=.\R2;Integrated Security=Yes';
 my $dbh = DBI->connect($dbs) or die "Error: $DBI::errstr\n";
 
 binmode(STDOUT, ":raw");
-print "\xEF\xBB\xBF"; # UTF-8 Byte Order Mark
+# print "\xEF\xBB\xBF"; # UTF-8 Byte Order Mark
 binmode(STDOUT, ':utf8');
 binmode(STDERR, ':utf8');
 $dbh->{LongReadLen} = 50000;
@@ -32,7 +32,7 @@ select 'JIT-' + cast(SDRNum as varchar(50)) [key]
 from STAR..sdr s
 left join STAR..UserInfo u on u.UserName = s.AssignedTo
 left join STAR..UserInfo us on us.UserName = s.Submitter
-where SDRNum in (57003, 57021, 57022, 57068, 53762)
+where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675)
 ~
 #, convert(varchar(25), s.DateClosed, 126) resolved
 
@@ -71,7 +71,7 @@ select SDR_Num [issueKey]
 from STAR..sdr_log l
 left join STAR..UserInfo p on l.Person = p.UserName
 left join STAR..UserInfo hu on l.ReasonCode = hu.UserName
-where SDR_Num in (57003, 57021, 57022, 57068, 53762)
+where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -236,7 +236,7 @@ select sdr_no
 	, convert(varchar(25), dateadd(hour, -5, s.Date_Reported), 126) created
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no
-where sdr_no in (57003, 57021, 57022, 57068, 53762)
+where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675)
 ~
 
 $sth = $dbh->prepare($query);
@@ -282,6 +282,8 @@ select
 	,r.DocoNotes
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.earliest, getdate())), 126) created
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
+	,FeatOrEnhNum
+	,a.NTUserName Analyst
 from STAR..resolution r
 left join STAR..UserInfo a on r.Analyst = a.UserName
 left join STAR..UserInfo l on r.TeamLeader = l.UserName
@@ -296,7 +298,7 @@ left join
 from STAR..trans_log
 group by TransmittalID) d
 on r.TransmittalId = d.TransmittalID
-where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
+where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -326,8 +328,15 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$version_list{$hashref->{'affectedVersions'}} = 1;
 	$component_list{$hashref->{'components'}} = 1;
 	
+	if ($resolution{FeatOrEnhNum})
+	{
+		$resolution{comments} = [{body=>'Enh/Feature ID: ' . $resolution{FeatOrEnhNum},created=>$resolution{created},author=>$resolution{Analyst}}];
+	}
+	
 	delete $resolution{DocoNotes};		
 	delete $resolution{TransmittalId};
+	delete $resolution{FeatOrEnhNum};
+	delete $resolution{Analyst};
 }
 $sth->finish;
 
@@ -337,7 +346,7 @@ select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) cr
 REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 from STAR..trans_log xl
 left join STAR..UserInfo u on u.UserName = xl.person
-where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
+where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
 ~
 
 $sth = $dbh->prepare($query);
@@ -397,7 +406,7 @@ $query = <<'~';
 select TransmittalID, isnull(FileToShip, '') + CHAR(9) + isnull(FileChanged, '') + CHAR(9) 
 + isnull(RevisionLevelFrom, '') + '=>' + isnull(RevisionLevelTo, '')
 from STAR..FileChanges
-where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
+where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
 order by TransmittalID, FCIndex
 ~
 $sth = $dbh->prepare($query);
@@ -419,8 +428,8 @@ left join (
 select SDR_Num, TransmittalID, ROW_NUMBER() OVER (PARTITION BY TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs) s on s.TransmittalID = r.TransmittalId
 where SDR_Num is not null
-and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370)
-and s.SDR_Num in (57003, 57021, 57022, 57068, 53762)
+and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
+and s.SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
