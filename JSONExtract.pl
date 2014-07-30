@@ -16,13 +16,56 @@ binmode(STDERR, ':utf8');
 $dbh->{LongReadLen} = 50000;
 
 my $query = <<'~';
-select 'JIT-' + cast(SDRNum as varchar(50)) [key]
-, SDRNum
+select NTUserName, EmailAddr, UserName, Access,
+case when CHARINDEX(',', ExchangeName) > 1
+then LTRIM(SUBSTRING(ExchangeName, CHARINDEX(',', ExchangeName)+1, 35))
++ ' ' + SUBSTRING(ExchangeName, 1, CHARINDEX(',', ExchangeName)-1) 
+else ExchangeName end FullName
+from STAR..UserInfo
+~
+
+my $sth = $dbh->prepare($query);
+$sth->execute();
+
+my %userMap = ();
+
+while (my @userInfo = $sth->fetchrow_array())
+{	
+	$userInfo[0] =~ /^([^\\]*)\\(.*$)/ or die 'Failes to parse ' . $userInfo[0];
+	my $domain = $1;
+	my $userName = $2;
+	
+	my $userRec;
+	
+	if (lc $domain eq 'infor')
+	{
+		$userRec = {name=>$userName,groups=>['jira-users'],active=>JSON::true};
+	} else {
+		$userRec = {name=>"WebStar_$userName",groups=>['jira-users'],active=>JSON::false};
+	}
+	if ($userInfo[3] eq 'Analyst' or $userInfo[3] eq 'Reviewer' or $userInfo[3] eq 'Admin')
+	{
+		push $userRec->{groups}, 'jira-developers';
+	}
+	if ($userInfo[1] =~ m/\S/)
+	{
+		$userRec->{email}=$userInfo[1];
+	}
+	if ($userInfo[4])
+	{
+		$userRec->{fullname} = $userInfo[4];
+	}
+	$userMap{$userInfo[2]} = $userRec;
+}
+$sth->finish;
+
+$query = <<'~';
+select SDRNum
 , case Severity when 'A' then 'P1' when 'B' then 'P2' when 'C' then 'P3' when 'D' then 'P4' else null end priority
 , case Status when 'W' then 'Awaiting Approval' when 'C' then 'Resolved' else 'Accepted' end status
 , ReasonCode resolution
-, us.NTUserName reporter
-, u.NTUserName assignee
+, s.Submitter reporter
+, s.AssignedTo assignee
 , convert(varchar(25), DATEADD(hour, -5, s.Date_Reported), 126) created
 , s.Version affectedVersions
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
@@ -30,19 +73,18 @@ select 'JIT-' + cast(SDRNum as varchar(50)) [key]
 , REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
 , 'Bug' issueType
 from STAR..sdr s
-left join STAR..UserInfo u on u.UserName = s.AssignedTo
-left join STAR..UserInfo us on us.UserName = s.Submitter
 where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675)
 ~
 #, convert(varchar(25), s.DateClosed, 126) resolved
 
-my $sth = $dbh->prepare($query);
+$sth = $dbh->prepare($query);
 $sth->execute() or die 'Failed to execute SDR query.';
 
 my $json = JSON->new->allow_nonref->pretty->ascii;
 my %sdrLookup = ();
 my %component_list = ();
 my %version_list = ();
+my @dummyBugLinks = ();
 
 while (my $hashref = $sth->fetchrow_hashref())
 {
@@ -55,6 +97,14 @@ while (my $hashref = $sth->fetchrow_hashref())
 		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'S-' . $hashref->{SDRNum}}
 	];
 	$hashref->{externalId} = '' . $hashref->{SDRNum};
+	if ($hashref->{assignee})
+	{
+		$hashref->{assignee} = GetUser($hashref->{assignee});
+	}
+	if ($hashref->{reporter})
+	{
+		$hashref->{reporter} = GetUser($hashref->{reporter});
+	}
 	delete $hashref->{SDRNum};
 }
 
@@ -63,14 +113,11 @@ $sth->finish;
 $query = <<'~';
 select SDR_Num [issueKey]
 ,convert(varchar(25), DATEADD(hour, -5, EntryDate), 126) created
-,isnull(p.NTUserName, l.Person) author
+,l.Person author
 ,LineType
 ,ReasonCode
 ,REPLACE(cast([Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
-,hu.NTUserName HistoryUser
 from STAR..sdr_log l
-left join STAR..UserInfo p on l.Person = p.UserName
-left join STAR..UserInfo hu on l.ReasonCode = hu.UserName
 where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675)
 ~
 $sth = $dbh->prepare($query);
@@ -87,6 +134,11 @@ while (my $comments = $sth->fetchrow_hashref())
 	my $histTo;
 	my $histToStr;
 	
+	if ($comments->{author})
+	{
+		$comments->{author} = GetUser($comments->{author});
+	}
+
 	given (lc $comments->{LineType})
 	{
 		when ('reported') {$histTo = 1; $histToStr = 'Open';}
@@ -124,8 +176,8 @@ while (my $comments = $sth->fetchrow_hashref())
 			field => 'assignee',
 			from => 'unknown',
 			fromString => 'Unknown',
-			to => $comments->{ReasonCode},
-			toString => $comments->{HistoryUser} // ''
+			to => GetUser($comments->{ReasonCode}),
+			toString => GetUser($comments->{ReasonCode})
 		}];
 	}
 	elsif (lc $comments->{LineType} eq 'severity' && $comments->{ReasonCode})
@@ -154,11 +206,11 @@ while (my $comments = $sth->fetchrow_hashref())
 			}];	
 		}
 	}
-	
+
 	if (%history)
 	{
-		$history{author} = $comments->{'author'};
-		$history{created} = $comments->{'created'};
+		$history{author} = $comments->{author};
+		$history{created} = $comments->{created};
 		if ($sdr->{'history'})
 		{
 			push $sdr->{'history'}, \%history;
@@ -259,14 +311,17 @@ $sth->finish;
 
 $query = <<'~';
 select
-	 r.TransmittalId 
-	,'JIT-' + cast((100000 + r.TransmittalId) as varchar(50)) [key]
-	,case when isnull(s.SDRCount, 0) = 0 then 'Task' else 'Resolution' end issueType
+	 r.TransmittalId
+	,case r.TransmittalType
+	 when 'F' then 'New Feature'
+	 when 'S' then 'Bug'
+	 else 'Feature Enhancement' end parentIssueType
+	,s.SDRCount
 	,case r.WaitingOn
-	 when 'Analyst' then a.NTUserName
-	 when 'Team Leader' then l.NTUserName
-	 when 'QA' then isnull(q.NTUserName, l.NTUserName)
-	 else l.NTUserName end assignee
+	 when 'Analyst' then r.Analyst
+	 when 'Team Leader' then r.TeamLeader
+	 when 'QA' then isnull(r.QATester, r.TeamLeader)
+	 else r.TeamLeader end assignee
 	,case r.WaitingOn
 	 when 'Analyst' then 'Accepted'
 	 when 'Team Leader' then 'Development Complete'
@@ -275,6 +330,12 @@ select
 	 when 'QA' then 'Awaiting Verification'
 	 when 'Pull' then 'Awaiting Release'
 	 when 'Done' then 'Resolved' end [status]
+	,case r.WaitingOn
+	 when 'Analyst' then 'Awaiting Resolutions'
+	 else 'Resolved' end parentIssueStatus
+	,case r.WaitingOn
+	 when 'Analyst' then 'Waiting'
+	 else 'Fixed' end parentIssueResolution	
 	,r.RlsLevelTarget affectedVersions
 	,r.FunctionalArea components
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
@@ -283,11 +344,8 @@ select
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.earliest, getdate())), 126) created
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
 	,FeatOrEnhNum
-	,a.NTUserName Analyst
+	,r.Analyst Analyst
 from STAR..resolution r
-left join STAR..UserInfo a on r.Analyst = a.UserName
-left join STAR..UserInfo l on r.TeamLeader = l.UserName
-left join STAR..UserInfo q on r.QATester = q.UserName
 left join (
 select TransmittalID, count(*) SDRCount
 from STAR..Resolution_SDRs
@@ -308,6 +366,7 @@ my %resolutions = ();
 while (my $hashref = $sth->fetchrow_hashref())
 {
 	my %resolution = %{$hashref};
+	$resolution{issueType} = 'Resolution';
 	($resolution{summary} = '[' . $resolution{affectedVersions} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
 	$resolution{components} = [$resolution{components}];
 	if ($resolution{DocoNotes})
@@ -330,22 +389,48 @@ while (my $hashref = $sth->fetchrow_hashref())
 	
 	if ($resolution{FeatOrEnhNum})
 	{
-		$resolution{comments} = [{body=>'Enh/Feature ID: ' . $resolution{FeatOrEnhNum},created=>$resolution{created},author=>$resolution{Analyst}}];
+		$resolution{comments} = [{body=>'Enh/Feature ID: ' . $resolution{FeatOrEnhNum},
+			created=>$resolution{created},author=>GetUser($resolution{Analyst})}];
+	}
+	
+	if ($resolution{assignee})
+	{
+		$resolution{assignee} = GetUser($resolution{assignee});
+	}
+	
+	if ($resolution{SDRCount} == 0)
+	{
+		$sdrLookup{'D'.$resolution{TransmittalId}} =
+			 {externalId=>'D'.$resolution{TransmittalId}
+			,summary=>$resolution{summary}
+			,description=>$resolution{description}
+			,status=>$resolution{parentIssueStatus}
+			,issueType=>$resolution{parentIssueType}
+			,resolution=>$resolution{parentIssueResolution}
+			,assignee=>$resolution{assignee}
+			,created=>$resolution{created}
+			,affectedVersions=>$resolution{affectedVersions}
+			,components=>$resolution{components}
+		};
+		push @dummyBugLinks, {sourceId => $resolution{externalId}, destinationId =>'D'.$resolution{TransmittalId}};
 	}
 	
 	delete $resolution{DocoNotes};		
 	delete $resolution{TransmittalId};
 	delete $resolution{FeatOrEnhNum};
 	delete $resolution{Analyst};
+	delete $resolution{parentIssueStatus};
+	delete $resolution{parentIssueType};
+	delete $resolution{parentIssueResolution};
+	delete $resolution{SDRCount};
 }
 $sth->finish;
 
 $query = <<'~';
 select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) created
-,isnull(u.NTUserName, xl.person) author, linetype,
+,xl.person author, linetype,
 REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 from STAR..trans_log xl
-left join STAR..UserInfo u on u.UserName = xl.person
 where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
 ~
 
@@ -381,7 +466,7 @@ while (my $transLog = $sth->fetchrow_hashref())
 				$resolution->{history} = [\%hist];
 			}
 		}
-
+		$hist{author} = GetUser($hist{author});
 		$hist{description} =~ s/^\s*(.*?)\s*$/$1/;
 		if ($hist{description} || not @hist{items})
 		{
@@ -438,11 +523,16 @@ my @links = ();
 
 while (my $link = $sth->fetchrow_hashref())
 {
-	push @links, {name=>($link->{RowNum}==1)?"sub-task-link":"Fixed",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})}
+	push @links, {name=>($link->{RowNum}==1)?"sub-task-link":"Fixed",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})};
 }
 $sth->finish;
 
-my %import = (projects => [{name=>'JSON Importer Test', key=>'JIT',
+for my $dummyLink (@dummyBugLinks)
+{
+	push @links, {name=>'sub-task-link', %{$dummyLink}};
+}
+
+my %import = (users => [values %userMap], projects => [{name=>'JSON Importer Test', key=>'JIT',
 	components=>[keys %component_list], versions=>[map({name=>$_}, keys %version_list)],
 	issues=>[values %sdrLookup, values %resolutions]}],
 	links=>\@links);
@@ -516,4 +606,13 @@ sub GetReason {
 	}
 
 	return %result;
+}
+
+sub GetUser {
+	if (exists $userMap{$_[0]})
+	{
+		return $userMap{$_[0]}->{name} // 'WebStar_' . $_[0];
+	}
+	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false};
+	return 'WebStar_' . $_[0];
 }
