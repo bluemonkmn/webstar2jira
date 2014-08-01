@@ -29,9 +29,11 @@ $sth->execute();
 
 my %userMap = ();
 
+# Releases ('5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI')
+
 while (my @userInfo = $sth->fetchrow_array())
 {	
-	$userInfo[0] =~ /^([^\\]*)\\(.*$)/ or die 'Failes to parse ' . $userInfo[0];
+	$userInfo[0] =~ /^([^\\]*)\\(.*$)/ or die 'Failed to parse ' . $userInfo[0];
 	my $domain = $1;
 	my $userName = $2;
 	
@@ -40,16 +42,19 @@ while (my @userInfo = $sth->fetchrow_array())
 	if (lc $domain eq 'infor')
 	{
 		$userRec = {name=>$userName,groups=>['jira-users'],active=>JSON::true};
+		if ($userInfo[3] eq 'Analyst' or $userInfo[3] eq 'Reviewer' or $userInfo[3] eq 'Admin')
+		{
+			push $userRec->{groups}, 'jira-developers';
+		}
 	} else {
-		$userRec = {name=>"WebStar_$userName",groups=>['jira-users'],active=>JSON::false};
+		$userRec = {name=>"WebStar_$userName",active=>JSON::false};
 	}
-	if ($userInfo[3] eq 'Analyst' or $userInfo[3] eq 'Reviewer' or $userInfo[3] eq 'Admin')
-	{
-		push $userRec->{groups}, 'jira-developers';
-	}
+	
 	if ($userInfo[1] =~ m/\S/)
 	{
 		$userRec->{email}=$userInfo[1];
+	} else {
+		$userRec->{email}='no.reply@infor.com';
 	}
 	if ($userInfo[4])
 	{
@@ -61,7 +66,8 @@ $sth->finish;
 
 $query = <<'~';
 select SDRNum
-, case Severity when 'A' then 'P1' when 'B' then 'P2' when 'C' then 'P3' when 'D' then 'P4' else null end priority
+, case Severity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
+, case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else null end priority
 , case Status when 'W' then 'Awaiting Approval' when 'C' then 'Resolved' else 'Accepted' end status
 , ReasonCode resolution
 , s.Submitter reporter
@@ -72,8 +78,11 @@ select SDRNum
 , ProblemBrief summary
 , REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
 , 'Bug' issueType
+, Source
+, Introduced
+, REPLACE(Release, '.', '_') Branch
 from STAR..sdr s
-where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675)
+where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
 ~
 #, convert(varchar(25), s.DateClosed, 126) resolved
 
@@ -90,12 +99,22 @@ while (my $hashref = $sth->fetchrow_hashref())
 {
 	$component_list{$hashref->{'components'}} = 1;
 	$hashref->{'components'} = [$hashref->{'components'}];
+	$hashref->{'affectedVersions'} = $hashref->{'affectedVersions'} . ' (' . $hashref->{Branch} . ')';
 	$version_list{$hashref->{'affectedVersions'}} = 1;
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
 	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
-		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'S-' . $hashref->{SDRNum}}
+		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FS-SDR' . $hashref->{SDRNum}}
 	];
+	my %reason = GetReason($hashref->{resolution});
+	if (%reason)
+	{
+		$hashref->{resolution} = $reason{toString};
+	}
+	if ($hashref->{ReportedPriority})
+	{
+		push $hashref->{customFieldValues}, {fieldName=>'Reported Priority', fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:select',value=>$hashref->{ReportedPriority}};
+	}
 	$hashref->{externalId} = '' . $hashref->{SDRNum};
 	if ($hashref->{assignee})
 	{
@@ -105,7 +124,20 @@ while (my $hashref = $sth->fetchrow_hashref())
 	{
 		$hashref->{reporter} = GetUser($hashref->{reporter});
 	}
+	if ($hashref->{Source})
+	{
+		$hashref->{description} .= "\nSource: " . $hashref->{Source};
+	}
+	if ($hashref->{Introduced})
+	{
+		$hashref->{description} .= "\nIntroduced" . $hashref->{Introduced};
+	}
+	
 	delete $hashref->{SDRNum};
+	delete $hashref->{ReportedPriority};
+	delete $hashref->{Source};
+	delete $hashref->{Introduced};
+	delete $hashref->{Branch};
 }
 
 $sth->finish;
@@ -118,7 +150,7 @@ select SDR_Num [issueKey]
 ,ReasonCode
 ,REPLACE(cast([Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
 from STAR..sdr_log l
-where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675)
+where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -288,7 +320,7 @@ select sdr_no
 	, convert(varchar(25), dateadd(hour, -5, s.Date_Reported), 126) created
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no
-where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675)
+where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
 ~
 
 $sth = $dbh->prepare($query);
@@ -345,6 +377,7 @@ select
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
 	,FeatOrEnhNum
 	,r.Analyst Analyst
+	,REPLACE(r.ReleaseLev,'.','_') Branch
 from STAR..resolution r
 left join (
 select TransmittalID, count(*) SDRCount
@@ -356,7 +389,7 @@ left join
 from STAR..trans_log
 group by TransmittalID) d
 on r.TransmittalId = d.TransmittalID
-where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
+where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -367,7 +400,10 @@ while (my $hashref = $sth->fetchrow_hashref())
 {
 	my %resolution = %{$hashref};
 	$resolution{issueType} = 'Resolution';
+	$resolution{affectedVersions} = $resolution{affectedVersions} . ' (' . $resolution{Branch} . ')';
 	($resolution{summary} = '[' . $resolution{affectedVersions} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
+	$version_list{$resolution{'affectedVersions'}} = 1;
+	$component_list{$resolution{'components'}} = 1;
 	$resolution{components} = [$resolution{components}];
 	if ($resolution{DocoNotes})
 	{
@@ -376,16 +412,13 @@ while (my $hashref = $sth->fetchrow_hashref())
 	}
 
 	@resolution{customFieldValues} = [
-		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'X-' . $resolution{TransmittalId}},
-		{fieldName=>'Branch',value=>$resolution{affectedVersions},fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield'}
+		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FS-TR' . $resolution{TransmittalId}},
+		{fieldName=>'Branch',value=>$resolution{Branch},fieldType=>'com.lawson.tools.jira.customfields:jira-integration-only-field'}
 	];
 	
 	$resolution{affectedVersions} = [$resolution{affectedVersions}];
 	$resolution{externalId} = '' . ($resolution{TransmittalId} + 100000);
 	$resolutions{$resolution{TransmittalId}} = \%resolution;
-	
-	$version_list{$hashref->{'affectedVersions'}} = 1;
-	$component_list{$hashref->{'components'}} = 1;
 	
 	if ($resolution{FeatOrEnhNum})
 	{
@@ -423,6 +456,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	delete $resolution{parentIssueType};
 	delete $resolution{parentIssueResolution};
 	delete $resolution{SDRCount};
+	delete $resolution{Branch};
 }
 $sth->finish;
 
@@ -431,7 +465,7 @@ select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) cr
 ,xl.person author, linetype,
 REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 from STAR..trans_log xl
-where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
+where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
 ~
 
 $sth = $dbh->prepare($query);
@@ -491,7 +525,7 @@ $query = <<'~';
 select TransmittalID, isnull(FileToShip, '') + CHAR(9) + isnull(FileChanged, '') + CHAR(9) 
 + isnull(RevisionLevelFrom, '') + '=>' + isnull(RevisionLevelTo, '')
 from STAR..FileChanges
-where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
+where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
 order by TransmittalID, FCIndex
 ~
 $sth = $dbh->prepare($query);
@@ -513,8 +547,8 @@ left join (
 select SDR_Num, TransmittalID, ROW_NUMBER() OVER (PARTITION BY TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs) s on s.TransmittalID = r.TransmittalId
 where SDR_Num is not null
-and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343)
-and s.SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675)
+and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
+and s.SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -613,6 +647,6 @@ sub GetUser {
 	{
 		return $userMap{$_[0]}->{name} // 'WebStar_' . $_[0];
 	}
-	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false};
+	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false, email=>'no.reply@infor.com'};
 	return 'WebStar_' . $_[0];
 }
