@@ -16,12 +16,8 @@ binmode(STDERR, ':utf8');
 $dbh->{LongReadLen} = 50000;
 
 my $query = <<'~';
-select NTUserName, EmailAddr, UserName, Access,
-case when CHARINDEX(',', ExchangeName) > 1
-then LTRIM(SUBSTRING(ExchangeName, CHARINDEX(',', ExchangeName)+1, 35))
-+ ' ' + SUBSTRING(ExchangeName, 1, CHARINDEX(',', ExchangeName)-1) 
-else ExchangeName end FullName
-from STAR..UserInfo
+select NTUserName, EmailAddr, UserName, Access, FullName, Active
+from StarMap..UserInfo
 ~
 
 my $sth = $dbh->prepare($query);
@@ -39,7 +35,7 @@ while (my @userInfo = $sth->fetchrow_array())
 	
 	my $userRec;
 	
-	if (lc $domain eq 'infor')
+	if ($userInfo[5] == 1)
 	{
 		$userRec = {name=>$userName,groups=>['jira-users'],active=>JSON::true};
 		if ($userInfo[3] eq 'Analyst' or $userInfo[3] eq 'Reviewer' or $userInfo[3] eq 'Admin')
@@ -77,10 +73,24 @@ select SDRNum
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
 , REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
-, 'Bug' issueType
+, case ProbEnh when 'E' then 'Feature Enhancement' else 'Bug' end issueType
 , Source
 , Introduced
 , REPLACE(Release, '.', '_') Branch
+,case Source
+ when 'Unknown' then 'Unknown'
+ when 'Configuration' then 'Configuration'
+ when 'Style Guide Violatn' then 'StyleGuideViolation'
+ when 'Spec Violation' then 'SpecViolation'
+ when 'Design Error' then 'Design'
+ when 'Design' then 'Design'
+ when 'No Spec11' then 'NoSpec'
+ when 'No Spec' then 'NoSpec'
+ when 'Regression' then 'Regression'
+ when 'DOCO' then 'Documentation'
+ when 'Implementation Error' then 'Implementation'
+ else null
+ end SourceLabel
 from STAR..sdr s
 where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
 ~
@@ -127,15 +137,28 @@ while (my $hashref = $sth->fetchrow_hashref())
 	if ($hashref->{Source})
 	{
 		$hashref->{description} .= "\nSource: " . $hashref->{Source};
+		if ($hashref->{SourceLabel})
+		{
+			$hashref->{labels} = ['Source_' . $hashref->{SourceLabel}];
+		}
 	}
 	if ($hashref->{Introduced})
 	{
-		$hashref->{description} .= "\nIntroduced" . $hashref->{Introduced};
+		$hashref->{description} .= "\nIntroduced: " . $hashref->{Introduced};
+		$hashref->{Introduced} =~ s/\s/_/g;
+		$hashref->{Introduced} = 'Introduced_' . $hashref->{Introduced};
+		if ($hashref->{labels})
+		{
+			push $hashref->{labels}, $hashref->{Introduced};
+		} else {
+			$hashref->{labels} = [$hashref->{Introduced}];
+		}
 	}
 	
 	delete $hashref->{SDRNum};
 	delete $hashref->{ReportedPriority};
 	delete $hashref->{Source};
+	delete $hashref->{SourceLabel};
 	delete $hashref->{Introduced};
 	delete $hashref->{Branch};
 }
@@ -401,7 +424,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	my %resolution = %{$hashref};
 	$resolution{issueType} = 'Resolution';
 	$resolution{affectedVersions} = $resolution{affectedVersions} . ' (' . $resolution{Branch} . ')';
-	($resolution{summary} = '[' . $resolution{affectedVersions} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
+	($resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
 	$version_list{$resolution{'affectedVersions'}} = 1;
 	$component_list{$resolution{'components'}} = 1;
 	$resolution{components} = [$resolution{components}];
@@ -643,6 +666,10 @@ sub GetReason {
 }
 
 sub GetUser {
+	if (not $_[0] =~ m/\S/)
+	{
+		return '';
+	}
 	if (exists $userMap{$_[0]})
 	{
 		return $userMap{$_[0]}->{name} // 'WebStar_' . $_[0];

@@ -46,5 +46,4 @@ update UserInfo set FullName = 'Zhang Xiaomin' where FullName = 'Xiaomin Zhang'
 
 update UserInfo set EmailAddr = 'andy.wallace@infor.com' where NTUserName = 'infor\awallace'
 update UserInfo set EmailAddr = 'jian.wang@infor.com' where NTUserName = 'infor\jwang4'
-update UserInfo set EmailAddr = 'shelia.yates@infor.com' where NTUserName = 'infor\syates'
 update UserInfo set EmailAddr = 'jin.yang@infor.com' where NTUserName = 'infor\yjin2'
