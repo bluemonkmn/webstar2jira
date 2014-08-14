@@ -63,13 +63,29 @@ $sth->finish;
 $query = <<'~';
 select SDRNum
 , case Severity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
-, case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else null end priority
-, case Status when 'W' then 'Awaiting Approval' when 'C' then 'Resolved' else 'Accepted' end status
-, ReasonCode resolution
+, case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P5' end priority
+, case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Resolved' else 'Awaiting Resolutions' end else
+  case Status
+  when 'W' then case ReasonCode when 'Future Release' then 'Open' else 'Resolved' end
+  when 'C' then 'Resolved'
+  else 'Accepted' end end status
+, case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Fixed' else 'Waiting' end else
+  case Status when 'W' then case ReasonCode
+  when 'Future Release' then 'Unresolved'
+  when 'Need More Info' then 'Incomplete'
+  when 'Mystery' then 'Cannot Reproduce'
+  else 'Unresolved' end
+  when 'C' then case ReasonCode
+  when 'No Problem' then 'Works As Designed'
+  when 'No Fix' then 'No Plans to Fix'
+  when 'Duplicate' then 'Duplicate'
+  when 'Fixed' then 'Fixed Other'
+  else 'Fixed Other' end
+  else 'Unresolved' end end resolution
 , s.Submitter reporter
 , s.AssignedTo assignee
 , convert(varchar(25), DATEADD(hour, -5, s.Date_Reported), 126) created
-, s.Version affectedVersions
+, isnull(r.JIRAVersion, s.Version) affectedVersions
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
 , REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
@@ -91,7 +107,14 @@ select SDRNum
  when 'Implementation Error' then 'Implementation'
  else null
  end SourceLabel
+, r.HotfixLabel
+, r.LanguageLabel
 from STAR..sdr s
+left join StarMap..ReleaseIDs r on s.[Version] = r.ReleaseID
+left join (
+select rs.SDR_Num, COUNT(*) TransCount
+from STAR..Resolution_SDRs rs
+group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum
 where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
 ~
 #, convert(varchar(25), s.DateClosed, 126) resolved
@@ -109,18 +132,12 @@ while (my $hashref = $sth->fetchrow_hashref())
 {
 	$component_list{$hashref->{'components'}} = 1;
 	$hashref->{'components'} = [$hashref->{'components'}];
-	$hashref->{'affectedVersions'} = $hashref->{'affectedVersions'} . ' (' . $hashref->{Branch} . ')';
 	$version_list{$hashref->{'affectedVersions'}} = 1;
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
 	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
 		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FS-SDR' . $hashref->{SDRNum}}
 	];
-	my %reason = GetReason($hashref->{resolution});
-	if (%reason)
-	{
-		$hashref->{resolution} = $reason{toString};
-	}
 	if ($hashref->{ReportedPriority})
 	{
 		push $hashref->{customFieldValues}, {fieldName=>'Reported Priority', fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:select',value=>$hashref->{ReportedPriority}};
@@ -142,6 +159,24 @@ while (my $hashref = $sth->fetchrow_hashref())
 			$hashref->{labels} = ['Source_' . $hashref->{SourceLabel}];
 		}
 	}
+	if ($hashref->{HotfixLabel})
+	{
+		if ($hashref->{labels})
+		{
+			push $hashref->{labels}, $hashref->{HotfixLabel};
+		} else {
+			$hashref->{labels} = [$hashref->{HotfixLabel}];
+		}
+	}
+	if ($hashref->{LanguageLabel})
+	{
+		if ($hashref->{labels})
+		{
+			push $hashref->{labels}, $hashref->{LanguageLabel};
+		} else {
+			$hashref->{labels} = [$hashref->{LanguageLabel}];
+		}
+	}
 	if ($hashref->{Introduced})
 	{
 		$hashref->{description} .= "\nIntroduced: " . $hashref->{Introduced};
@@ -161,6 +196,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 	delete $hashref->{SourceLabel};
 	delete $hashref->{Introduced};
 	delete $hashref->{Branch};
+	delete $hashref->{HotfixLabel};
+	delete $hashref->{LanguageLabel};
 }
 
 $sth->finish;
@@ -235,7 +272,7 @@ while (my $comments = $sth->fetchrow_hashref())
 			toString => GetUser($comments->{ReasonCode})
 		}];
 	}
-	elsif (lc $comments->{LineType} eq 'severity' && $comments->{ReasonCode})
+	elsif (lc $comments->{LineType} eq 'priority' && $comments->{ReasonCode})
 	{
 		my $sev = $comments->{ReasonCode};
 		$history{items} = [{
@@ -243,8 +280,8 @@ while (my $comments = $sth->fetchrow_hashref())
 			field => 'priority',
 			from => 'P0',
 			fromString => 'Unknown',
-			to => ($sev eq 'A') ? 'P1' : ($sev eq 'B') ? 'P2' : ($sev eq 'C') ? 'P3' : ($sev eq 'D') ? 'P4' : 'P0',
-			toString => ($sev eq 'A') ? '1' : ($sev eq 'B') ? '2' : ($sev eq 'C') ? '3' : ($sev eq 'D') ? '4' : 'None'
+			to => ($sev eq '@') ? 'P1' : ($sev eq 'ß') ? 'P2' : ($sev eq '*') ? 'P3' : ($sev eq 'H') ? 'P4' : 'P5',
+			toString => ($sev eq '@') ? '1' : ($sev eq 'ß') ? '2' : ($sev eq '*') ? '3' : ($sev eq 'H') ? '4' : '5'
 		}];
 	}
 	elsif (lc $comments->{LineType} eq 'reason' && $comments->{ReasonCode})
@@ -383,27 +420,28 @@ select
 	 when 'Release Mgr' then 'Development Complete'
 	 when 'Build' then 'Development Complete'
 	 when 'QA' then 'Awaiting Verification'
-	 when 'Pull' then 'Awaiting Release'
+	 when 'Pull' then case when ri.IsReleased=0 then 'Awaiting Release' else 'Resolved' end
 	 when 'Done' then 'Resolved' end [status]
-	,case r.WaitingOn
-	 when 'Analyst' then 'Awaiting Resolutions'
+	,case when r.WaitingOn='Analyst' or ri.IsReleased=0 then 'Awaiting Resolutions'
 	 else 'Resolved' end parentIssueStatus
-	,case r.WaitingOn
-	 when 'Analyst' then 'Waiting'
+	,case when r.WaitingOn='Analyst' or ri.IsReleased=0 then 'Waiting'
 	 else 'Fixed' end parentIssueResolution	
-	,r.RlsLevelTarget affectedVersions
-	,r.FunctionalArea components
+	,isnull(ri.JIRAVersion, r.RlsLevelTarget) affectedVersions
+	,r.FunctionalArea
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
-	,case SDRSeverity when 'A' then 'P1' when 'B' then 'P2' when 'C' then 'P3' when 'D' then 'P4' else null end priority
+	,case SDRSeverity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
 	,r.DocoNotes
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.earliest, getdate())), 126) created
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
 	,FeatOrEnhNum
 	,r.Analyst Analyst
 	,REPLACE(r.ReleaseLev,'.','_') Branch
+	,ri.LanguageLabel
+	,ri.HotfixLabel
+	,case when sd.Level3 is null then sd.Level2 else sd.Level2 + '_' + sd.Level3 end components
 from STAR..resolution r
 left join (
-select TransmittalID, count(*) SDRCount
+select TransmittalID, count(*) SDRCount, max(SDR_Num) LastSDR
 from STAR..Resolution_SDRs
 group by TransmittalID
 ) s on s.TransmittalID = r.TransmittalId
@@ -412,6 +450,8 @@ left join
 from STAR..trans_log
 group by TransmittalID) d
 on r.TransmittalId = d.TransmittalID
+left join StarMap..ReleaseIDs ri on ri.ReleaseID = r.RlsLevelTarget
+left join STAR..sdr sd on sd.SDRNum = s.LastSDR
 where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
 ~
 $sth = $dbh->prepare($query);
@@ -423,7 +463,6 @@ while (my $hashref = $sth->fetchrow_hashref())
 {
 	my %resolution = %{$hashref};
 	$resolution{issueType} = 'Resolution';
-	$resolution{affectedVersions} = $resolution{affectedVersions} . ' (' . $resolution{Branch} . ')';
 	($resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
 	$version_list{$resolution{'affectedVersions'}} = 1;
 	$component_list{$resolution{'components'}} = 1;
@@ -434,6 +473,11 @@ while (my $hashref = $sth->fetchrow_hashref())
 		$resolution{labels} = ['documentation'];
 	}
 
+	if ($resolution{FunctionalArea} =~ m/\S/)
+	{
+		$resolution{description} .= "\nFunctional Area: " . $resolution{FunctionalArea};
+	}
+	
 	@resolution{customFieldValues} = [
 		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FS-TR' . $resolution{TransmittalId}},
 		{fieldName=>'Branch',value=>$resolution{Branch},fieldType=>'com.lawson.tools.jira.customfields:jira-integration-only-field'}
@@ -452,6 +496,31 @@ while (my $hashref = $sth->fetchrow_hashref())
 	if ($resolution{assignee})
 	{
 		$resolution{assignee} = GetUser($resolution{assignee});
+	}
+
+	if ($resolution{ReportedPriority})
+	{
+		push @resolution{customFieldValues}, {fieldName=>'Reported Priority', fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:select',value=>$resolution{ReportedPriority}};
+	}
+	
+	if ($resolution{LanguageLabel})
+	{
+		if ($resolution{labels})
+		{
+			push $resolution{labels}, $resolution{LanguageLabel};
+		} else {
+			$resolution{labels} = [$resolution{LanguageLabel}];
+		}
+	}
+
+	if ($resolution{HotfixLabel})
+	{
+		if ($resolution{labels})
+		{
+			push $resolution{labels}, $resolution{HotfixLabel};
+		} else {
+			$resolution{labels} = [$resolution{HotfixLabel}];
+		}
 	}
 	
 	if ($resolution{SDRCount} == 0)
@@ -480,6 +549,10 @@ while (my $hashref = $sth->fetchrow_hashref())
 	delete $resolution{parentIssueResolution};
 	delete $resolution{SDRCount};
 	delete $resolution{Branch};
+	delete $resolution{ReportedPriority};
+	delete $resolution{LanguageLabel};
+	delete $resolution{HotfixLabel};
+	delete $resolution{FunctionalArea};
 }
 $sth->finish;
 
@@ -487,6 +560,7 @@ $query = <<'~';
 select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) created
 ,xl.person author, linetype,
 REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
+,xl.[role]
 from STAR..trans_log xl
 where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
 ~
@@ -525,9 +599,13 @@ while (my $transLog = $sth->fetchrow_hashref())
 		}
 		$hist{author} = GetUser($hist{author});
 		$hist{description} =~ s/^\s*(.*?)\s*$/$1/;
+		
 		if ($hist{description} || not @hist{items})
 		{
-			my $histItem = {created=>$hist{created}, author=>$hist{author}, body=>$hist{linetype} . (($hist{description}) ? ': ' . $hist{description} : '')};
+			my $histItem = {created=>$hist{created}, author=>$hist{author},
+				body=>$hist{linetype} . 
+				(($hist{role} =~ m/\S/) ? ' (' . $hist{role}. ')' : '') .
+				(($hist{description}) ? ': ' . $hist{description} : '')};
 			if(exists $resolution->{comments})
 			{
 				push $resolution->{comments}, $histItem;
@@ -539,6 +617,7 @@ while (my $transLog = $sth->fetchrow_hashref())
 		delete $hist{TransmittalID};
 		delete $hist{linetype};
 		delete $hist{description};
+		delete $hist{role};
 	}
 }
 
