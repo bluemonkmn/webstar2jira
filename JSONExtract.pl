@@ -6,7 +6,7 @@ use 5.10.1;
 
 no if $] >= 5.018, warnings => "experimental";
 
-my $dbs = 'dbi:ODBC:DRIVER={SQL Server};SERVER=.\R2;Integrated Security=Yes';
+my $dbs = 'dbi:ODBC:DRIVER={SQL Server};SERVER=.;Integrated Security=Yes';
 my $dbh = DBI->connect($dbs) or die "Error: $DBI::errstr\n";
 
 binmode(STDOUT, ":raw");
@@ -115,7 +115,7 @@ left join (
 select rs.SDR_Num, COUNT(*) TransCount
 from STAR..Resolution_SDRs rs
 group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum
-where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
+where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
 ~
 #, convert(varchar(25), s.DateClosed, 126) resolved
 
@@ -133,6 +133,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$component_list{$hashref->{'components'}} = 1;
 	$hashref->{'components'} = [$hashref->{'components'}];
 	$version_list{$hashref->{'affectedVersions'}} = 1;
+	$version_list{$hashref->{'Branch'}} = 1;
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
 	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
@@ -210,7 +211,7 @@ select SDR_Num [issueKey]
 ,ReasonCode
 ,REPLACE(cast([Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
 from STAR..sdr_log l
-where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
+where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -380,7 +381,7 @@ select sdr_no
 	, convert(varchar(25), dateadd(hour, -5, s.Date_Reported), 126) created
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no
-where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
+where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
 ~
 
 $sth = $dbh->prepare($query);
@@ -430,6 +431,7 @@ select
 	,r.FunctionalArea
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 	,case SDRSeverity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
+	,case sd.Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P3' end priority
 	,r.DocoNotes
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.earliest, getdate())), 126) created
 	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
@@ -452,7 +454,7 @@ group by TransmittalID) d
 on r.TransmittalId = d.TransmittalID
 left join StarMap..ReleaseIDs ri on ri.ReleaseID = r.RlsLevelTarget
 left join STAR..sdr sd on sd.SDRNum = s.LastSDR
-where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
+where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -465,6 +467,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$resolution{issueType} = 'Resolution';
 	($resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
 	$version_list{$resolution{'affectedVersions'}} = 1;
+	$version_list{$resolution{'Branch'}} = 1;
 	$component_list{$resolution{'components'}} = 1;
 	$resolution{components} = [$resolution{components}];
 	if ($resolution{DocoNotes})
@@ -484,6 +487,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	];
 	
 	$resolution{affectedVersions} = [$resolution{affectedVersions}];
+	$resolution{fixedVersions} = $resolution{affectedVersions};
 	$resolution{externalId} = '' . ($resolution{TransmittalId} + 100000);
 	$resolutions{$resolution{TransmittalId}} = \%resolution;
 	
@@ -562,7 +566,7 @@ select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) cr
 REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 ,xl.[role]
 from STAR..trans_log xl
-where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
+where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
 ~
 
 $sth = $dbh->prepare($query);
@@ -627,7 +631,7 @@ $query = <<'~';
 select TransmittalID, isnull(FileToShip, '') + CHAR(9) + isnull(FileChanged, '') + CHAR(9) 
 + isnull(RevisionLevelFrom, '') + '=>' + isnull(RevisionLevelTo, '')
 from STAR..FileChanges
-where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
+where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
 order by TransmittalID, FCIndex
 ~
 $sth = $dbh->prepare($query);
@@ -649,8 +653,8 @@ left join (
 select SDR_Num, TransmittalID, ROW_NUMBER() OVER (PARTITION BY TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs) s on s.TransmittalID = r.TransmittalId
 where SDR_Num is not null
-and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638)
-and s.SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558)
+and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
+and s.SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
