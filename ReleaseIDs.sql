@@ -10,6 +10,7 @@ alter table ReleaseIDs drop constraint DF_IsReleased
 alter table ReleaseIDs add LanguageLabel varchar(20) null
 alter table ReleaseIDs add HotfixLabel varchar(10) null
 alter table ReleaseIDs add JIRAVersion varchar(15) null
+go
 
 update ReleaseIDs set LanguageLabel = 'Spanish'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
