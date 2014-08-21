@@ -425,7 +425,11 @@ select
 	,case when r.WaitingOn='Analyst' or ri.IsReleased=0 then 'Awaiting Resolutions'
 	 else 'Resolved' end parentIssueStatus
 	,case when r.WaitingOn='Analyst' or ri.IsReleased=0 then 'Waiting'
-	 else 'Fixed' end parentIssueResolution	
+	 else 'Fixed' end parentIssueResolution
+	,case r.WaitingOn
+	 when 'Done' then 'Fixed'
+	 when 'Pull' then 'Fixed'
+	 else 'Unresolved' end resolution
 	,isnull(ri.JIRAVersion, r.RlsLevelTarget) affectedVersions
 	,r.FunctionalArea
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
@@ -465,8 +469,13 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$resolution{issueType} = 'Resolution';
 	($resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
 	$version_list{$resolution{'affectedVersions'}} = 1;
-	$component_list{$resolution{'components'}} = 1;
-	$resolution{components} = [$resolution{components}];
+	if ($resolution{components})
+	{
+		$component_list{$resolution{'components'}} = 1;
+		$resolution{components} = [$resolution{components}];
+	} else {
+		delete $resolution{components};
+	}
 	if ($resolution{DocoNotes})
 	{
 		$resolution{description} .= "\n" . $resolution{DocoNotes};
@@ -525,7 +534,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	
 	if ($resolution{SDRCount} == 0)
 	{
-		$sdrLookup{'D'.$resolution{TransmittalId}} =
+		my $dummyBug =
 			 {externalId=>'D'.$resolution{TransmittalId}
 			,summary=>$resolution{summary}
 			,description=>$resolution{description}
@@ -535,8 +544,15 @@ while (my $hashref = $sth->fetchrow_hashref())
 			,assignee=>$resolution{assignee}
 			,created=>$resolution{created}
 			,affectedVersions=>$resolution{affectedVersions}
-			,components=>$resolution{components}
 		};
+		
+		if ($resolution{components})
+		{
+			push $dummyBug->{components} = $resolution{components};
+		}
+
+		$sdrLookup{'D'.$resolution{TransmittalId}} = $dummyBug;
+
 		push @dummyBugLinks, {sourceId => $resolution{externalId}, destinationId =>'D'.$resolution{TransmittalId}};
 	}
 	
