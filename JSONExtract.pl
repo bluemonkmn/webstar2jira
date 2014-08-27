@@ -50,7 +50,7 @@ while (my @userInfo = $sth->fetchrow_array())
 	{
 		$userRec->{email}=$userInfo[1];
 	} else {
-		$userRec->{email}='no.reply@infor.com';
+		#$userRec->{email}='no.reply@infor.com';
 	}
 	if ($userInfo[4])
 	{
@@ -496,7 +496,10 @@ while (my $hashref = $sth->fetchrow_hashref())
 	];
 	
 	$resolution{affectedVersions} = [$resolution{affectedVersions}];
-	$resolution{fixedVersions} = $resolution{affectedVersions};
+	if ($resolution{resolution} eq 'Fixed')
+	{
+		$resolution{fixedVersions} = $resolution{affectedVersions};
+	}
 	$resolution{externalId} = '' . ($resolution{TransmittalId} + 100000);
 	$resolutions{$resolution{TransmittalId}} = \%resolution;
 	
@@ -505,6 +508,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 		$resolution{comments} = [{body=>'Enh/Feature ID: ' . $resolution{FeatOrEnhNum},
 			created=>$resolution{created},author=>GetUser($resolution{Analyst})}];
 	}
+
+	$resolution{reporter} = GetUser($resolution{Analyst});
 	
 	if ($resolution{assignee})
 	{
