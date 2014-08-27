@@ -11,9 +11,9 @@ my $ssdb73 = 'C:\Users\bmarty\Downloads\R73';
 my $ssdb74 = 'C:\Users\bmarty\Downloads\R74';
 my $ssdb75 = 'C:\Users\bmarty\Downloads\R75';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $ss73 = '$/R73pin/Src/mssgui32/fsguiapp';
-my $ss74 = '$/R74pin/Src/mssgui32/fsguiapp';
-my $ss75 = '$/R75/Src/mssgui32/fsguiapp';
+my $ss73 = '$/R73pin/';
+my $ss74 = '$/R74pin/';
+my $ss75 = '$/R75/';
 
 LogMsg('Starting migration at ' . localtime());
 
