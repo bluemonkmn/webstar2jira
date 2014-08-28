@@ -25,11 +25,11 @@ $sth->execute();
 
 my %userMap = ();
 
-# Releases ('5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI')
+# Releases ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 
 while (my @userInfo = $sth->fetchrow_array())
 {	
-	$userInfo[0] =~ /^([^\\]*)\\(.*$)/ or die 'Failed to parse ' . $userInfo[0];
+	$userInfo[0] =~ /^([^\\]*)\\(\S*)\s*$/ or die 'Failed to parse ' . $userInfo[0];
 	my $domain = $1;
 	my $userName = $2;
 	
@@ -51,6 +51,7 @@ while (my @userInfo = $sth->fetchrow_array())
 		$userRec->{email}=$userInfo[1];
 	} else {
 		#$userRec->{email}='no.reply@infor.com';
+		$userRec->{email}=$userName . '@softbrands.com';
 	}
 	if ($userInfo[4])
 	{
@@ -84,7 +85,8 @@ select SDRNum
   else 'Unresolved' end end resolution
 , s.Submitter reporter
 , s.AssignedTo assignee
-, convert(varchar(25), DATEADD(hour, -5, s.Date_Reported), 126) created
+, convert(varchar(25), DATEADD(hour, 5, s.Date_Reported), 126) created
+, convert(varchar(25), DATEADD(hour, 5, s.DateClosed), 126) resolved
 , isnull(r.JIRAVersion, s.Version) affectedVersions
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
@@ -117,7 +119,6 @@ from STAR..Resolution_SDRs rs
 group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum
 where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
 ~
-#, convert(varchar(25), s.DateClosed, 126) resolved
 
 $sth = $dbh->prepare($query);
 $sth->execute() or die 'Failed to execute SDR query.';
@@ -378,7 +379,7 @@ select sdr_no
 	+ replace(replace(rtrim(customer), char(10), ''), char(13), '') else '' end
 	+ case when len(isnull(cust_version, '')) > 0 then char(10) + 'At version: ' + cust_version else '' end
 	+ case when len(rtrim(notes)) > 0 then char(10) + ltrim(rtrim(isnull(notes,''))) else '' end body
-	, convert(varchar(25), dateadd(hour, -5, s.Date_Reported), 126) created
+	, convert(varchar(25), dateadd(hour, 5, s.Date_Reported), 126) created
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no
 where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
@@ -437,8 +438,8 @@ select
 	,case SDRSeverity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
 	,case sd.Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P3' end priority
 	,r.DocoNotes
-	,convert(varchar(25), DATEADD(hour, -5, isnull(d.earliest, getdate())), 126) created
-	,convert(varchar(25), DATEADD(hour, -5, isnull(d.latest, getdate())), 126) updated
+	,convert(varchar(25), DATEADD(hour, 5, isnull(d.earliest, getdate())), 126) created
+	,convert(varchar(25), DATEADD(hour, 5, isnull(d.latest, getdate())), 126) updated
 	,FeatOrEnhNum
 	,r.Analyst Analyst
 	,REPLACE(r.ReleaseLev,'.','_') Branch
@@ -553,6 +554,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 			,assignee=>$resolution{assignee}
 			,created=>$resolution{created}
 			,affectedVersions=>$resolution{affectedVersions}
+			,reporter=>$resolution{reporter}
 		};
 		
 		if ($resolution{components})
@@ -582,7 +584,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 $sth->finish;
 
 $query = <<'~';
-select TransmittalID, convert(varchar(25), DATEADD(hour, -5, entrydate), 126) created
+select TransmittalID, convert(varchar(25), DATEADD(hour, 5, entrydate), 126) created
 ,xl.person author, linetype,
 REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 ,xl.[role]
@@ -778,6 +780,6 @@ sub GetUser {
 	{
 		return $userMap{$_[0]}->{name} // 'WebStar_' . $_[0];
 	}
-	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false, email=>'no.reply@infor.com'};
+	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false, email=>$_[0] . '@softbrands.com'};
 	return 'WebStar_' . $_[0];
 }

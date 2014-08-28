@@ -40,11 +40,11 @@ update ReleaseIDs set LanguageLabel = 'Japanese'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 6) = '_Japan' or RIGHT(ReleaseID, 9) = '_Japanese'
 
-update ReleaseIDs set LanguageLabel = 'JE'
+update ReleaseIDs set LanguageLabel = 'JapaneseEnglish'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 3) = '_JE'
 
-update ReleaseIDs set LanguageLabel = 'ME'
+update ReleaseIDs set LanguageLabel = 'MainlandEnglish'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 3) = '_ME'
 
@@ -56,7 +56,7 @@ update ReleaseIDs set LanguageLabel = 'Taiwanese'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 7) = '_Taiwan' or RIGHT(ReleaseID, 10) = '_Taiwanese'
 
-update ReleaseIDs set LanguageLabel = 'TE'
+update ReleaseIDs set LanguageLabel = 'TaiwaneseEnglish'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 3) = '_TE'
 
@@ -88,8 +88,8 @@ update ReleaseIDs set LanguageLabel = 'Taiwanese', HotfixLabel = 'HotFix'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 9) = '_TaiwanHF'
 
-update ReleaseIDs set LanguageLabel = 'ME', HotfixLabel = 'HotFix'
+update ReleaseIDs set LanguageLabel = 'MainlandEnglish', HotfixLabel = 'HotFix'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 5) = '_MEHF'
 
-update ReleaseIDs set IsReleased = 0 where ReleaseID in ('7.50F')
+update ReleaseIDs set IsReleased = 0 where ReleaseID in ('7.50F','7.30M','7.40L','LEDO 5.10','BI 3','INAP 7.50.4','Visibar 5.5D')
