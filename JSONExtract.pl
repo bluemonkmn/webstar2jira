@@ -13,7 +13,7 @@ binmode(STDOUT, ":raw");
 # print "\xEF\xBB\xBF"; # UTF-8 Byte Order Mark
 binmode(STDOUT, ':utf8');
 binmode(STDERR, ':utf8');
-$dbh->{LongReadLen} = 50000;
+$dbh->{LongReadLen} = 100000;
 
 my $query = <<'~';
 select NTUserName, EmailAddr, UserName, Access, FullName, Active
@@ -117,7 +117,7 @@ left join (
 select rs.SDR_Num, COUNT(*) TransCount
 from STAR..Resolution_SDRs rs
 group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum
-where SDRNum in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
+where Release in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 ~
 
 $sth = $dbh->prepare($query);
@@ -205,14 +205,15 @@ while (my $hashref = $sth->fetchrow_hashref())
 $sth->finish;
 
 $query = <<'~';
-select SDR_Num [issueKey]
-,convert(varchar(25), DATEADD(hour, -5, EntryDate), 126) created
+select l.SDR_Num [issueKey]
+,convert(varchar(25), DATEADD(hour, -5, l.EntryDate), 126) created
 ,l.Person author
-,LineType
-,ReasonCode
-,REPLACE(cast([Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
+,l.LineType
+,l.ReasonCode
+,REPLACE(cast(l.[Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
 from STAR..sdr_log l
-where SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
+join STAR..sdr s on s.SDRNum = l.SDR_Num
+where s.Release in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -382,7 +383,7 @@ select sdr_no
 	, convert(varchar(25), dateadd(hour, 5, s.Date_Reported), 126) created
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no
-where sdr_no in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
+where s.Release in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 ~
 
 $sth = $dbh->prepare($query);
@@ -459,7 +460,7 @@ group by TransmittalID) d
 on r.TransmittalId = d.TransmittalID
 left join StarMap..ReleaseIDs ri on ri.ReleaseID = r.RlsLevelTarget
 left join STAR..sdr sd on sd.SDRNum = s.LastSDR
-where r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
+where r.ReleaseLev in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -584,12 +585,13 @@ while (my $hashref = $sth->fetchrow_hashref())
 $sth->finish;
 
 $query = <<'~';
-select TransmittalID, convert(varchar(25), DATEADD(hour, 5, entrydate), 126) created
-,xl.person author, linetype,
-REPLACE(cast([description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
+select xl.TransmittalID, convert(varchar(25), DATEADD(hour, 5, xl.entrydate), 126) created
+,xl.person author, xl.linetype,
+REPLACE(cast(xl.[description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 ,xl.[role]
 from STAR..trans_log xl
-where xl.TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
+join STAR..resolution r on r.TransmittalId = xl.TransmittalID
+where r.ReleaseLev in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 ~
 
 $sth = $dbh->prepare($query);
@@ -651,11 +653,12 @@ while (my $transLog = $sth->fetchrow_hashref())
 $sth->finish;
 
 $query = <<'~';
-select TransmittalID, isnull(FileToShip, '') + CHAR(9) + isnull(FileChanged, '') + CHAR(9) 
-+ isnull(RevisionLevelFrom, '') + '=>' + isnull(RevisionLevelTo, '')
-from STAR..FileChanges
-where TransmittalID in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
-order by TransmittalID, FCIndex
+select f.TransmittalID, isnull(f.FileToShip, '') + CHAR(9) + isnull(f.FileChanged, '') + CHAR(9) 
++ isnull(f.RevisionLevelFrom, '') + '=>' + isnull(f.RevisionLevelTo, '')
+from STAR..FileChanges f
+join STAR..resolution r on r.TransmittalId = f.TransmittalId
+where r.ReleaseLev in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
+order by f.TransmittalID, f.FCIndex
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -676,8 +679,7 @@ left join (
 select SDR_Num, TransmittalID, ROW_NUMBER() OVER (PARTITION BY TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs) s on s.TransmittalID = r.TransmittalId
 where SDR_Num is not null
-and r.TransmittalId in (48174, 48175, 48603, 48827, 48921, 48922, 50370, 52343, 51651, 51656, 51742, 51612, 51615, 51638, 52845)
-and s.SDR_Num in (57003, 57021, 57022, 57068, 53762, 57675, 56641, 59602, 59558, 60458, 60450)
+and r.ReleaseLev in ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
