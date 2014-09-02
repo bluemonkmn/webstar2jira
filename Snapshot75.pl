@@ -4,8 +4,8 @@ use Date::Format;
 use Data::Printer;
 my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $depot = 'FS';
-my $rootStream = ''; # If depot is 'FS', rootStream is 'Auto' and prepend is 'Ben', all streams will go under FS_BenAuto.
-my $prepend = 'SqlImport'; # prepended to created stream names in case multiple test imports need to be done.
+my $prepend = ''; # prepended to created stream names in case multiple test imports need to be done.
+my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
 chdir "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate" or die 'Failed to set current directory.';
 
 LogMsg('Starting labeling process ' . localtime());
@@ -21,6 +21,7 @@ my $r75Labels = [
 
 my $pid = open2(\*CHLD_OUT, \*CHLD_IN, "\"$accurev\" hist -s ${depot}_${prepend}7.50 -a -fe");
 my $tranNum;
+my $initialTran = 0;
 my %transDates =(); # key=AccuRev transaction number; value=array of dates of SS transactions included.
 while(<CHLD_OUT>)
 {
@@ -38,6 +39,10 @@ while(<CHLD_OUT>)
 			$transDates{$tranNum} = [$dt];
 		}
 	}
+	if (m/^  # Import initial FS 7\.50 source/)
+	{
+		$initialTran = $tranNum;
+	}
 }
 waitpid $pid, 0;
 
@@ -49,6 +54,40 @@ for my $tx (@{$r75Labels})
 	my $lastTranDt = time2str("%c", $transDates{$lastTran}->[0]);
 	print "$label -> $lastTran ($lastTranDt)\n";
 	MakeSnapshot($label, '7.50', $lastTran);
+}
+
+if ($initialTran)
+{
+	print "Promote initial import of 7.50 tree in #$initialTran.\n";
+	AccuRev("promote -c \"Promote 7.50 GA from #$initialTran (representing import of initial DB) to root\" -s ${depot}_${prepend}7.50 -S ${rootStream} -t $initialTran");
+} else {
+	die "Did not find initial transaction.";
+}
+
+my $gaDate = str2time($r75Labels->[0]->[1]);
+my @promoteTxns = ();
+foreach my $key (keys %transDates)
+{
+	my $lastDate = 0;
+	foreach my $dt (@{$transDates{$key}})
+	{
+		if ($dt > $lastDate)
+		{
+			$lastDate = $dt;
+		}
+	}
+	if ($lastDate <= $gaDate)
+	{
+		push @promoteTxns, $key;
+	}
+}
+
+@promoteTxns = sort(@promoteTxns);
+
+foreach my $key (@promoteTxns)
+{
+	print "Promote $key from " . time2str("%c", $transDates{$key}->[0]) . "\n";
+	AccuRev("promote -c \"Promote 7.50 GA from #$key on " . $transDates{$key}->[0] . " to root\" -s ${depot}_${prepend}7.50 -S ${rootStream} -t $key");
 }
 
 sub getTransNum {

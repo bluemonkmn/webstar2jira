@@ -75,13 +75,11 @@ RecursiveDelete();
 VSSGet($ss73, 'R7.30L');
 CommitAll('Import FS Label R7.30L');
 MakeSnapshot(StmName('7.30L_SP'), StmName('7.30'));
-MakeStream(StmName('7.30L'), StmName('7.30L_SP'));
-MakeStream(StmName('7.30_WorkComplete'), StmName('7.30L'));
-ReparentWorkspace(StmName('Migrate'), StmName('7.30_WorkComplete'));
 RecursiveDelete();
 VSSGetLatest($ss73);
 CommitAll('Import latest FS 7.30 code after 7.30L release.');
- # 7.40
+MakeStream(StmName('7.30_WorkComplete'), StmName('7.30'));
+# 7.40
 ReparentWorkspace(StmName('Migrate'), $rootStream);
 $ENV{'SSDIR'}=$ssdb74;
 VSSWorkFold($ss74, $wsDir);
@@ -135,12 +133,10 @@ RecursiveDelete();
 VSSGet($ss74, '7.40K');
 CommitAll('Import FS Label 7.40K');
 MakeSnapshot(StmName('7.40K_SP'), StmName('7.40'));
-MakeStream(StmName('7.40K'), StmName('7.40K_SP'));
-MakeStream(StmName('7.40_WorkComplete'), StmName('7.40K'));
-ReparentWorkspace(StmName('Migrate'), StmName('7.40_WorkComplete'));
 RecursiveDelete();
 VSSGetLatest($ss74);
 CommitAll('Import latest FS 7.40 code after 7.40K release.');
+MakeStream(StmName('7.40_WorkComplete'), StmName('7.40'));
 # 7.50
 MakeStream(StmName('7.50'), $rootStream);
 ReparentWorkspace(StmName('Migrate'), StmName('7.50'));
@@ -157,7 +153,7 @@ sub StmName {
 sub VSSGet {
 	my $ssPath = $_[0];
 	my $label = $_[1];
-	print "From $ssPath retrieve label $label, then press enter to continue.\n";
+	print STDERR "From $ssPath retrieve label $label, then press enter to continue.\n";
 	<STDIN>;
 	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vl$label");
 	#if ($?)
@@ -198,7 +194,7 @@ sub VSSGetByDate {
 
 sub VSSGetLatest {
 	my $ssPath = $_[0];
-	print "From $ssPath retrieve the latest code, then press enter to continue.\n";
+	print STDERR "From $ssPath retrieve the latest code, then press enter to continue.\n";
 	<STDIN>;
 	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W");
 	#if ($?)
@@ -265,7 +261,7 @@ sub MakeWorkspace {
 
 sub ReparentWorkspace {
 	my $wsName = $_[0];
-	my $basis = . $_[1];
+	my $basis = $_[1];
 	AccuRev("chws -w $wsName -b $basis");
 	AccuRev('update');
 }

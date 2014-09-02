@@ -23,7 +23,7 @@ from StarMap..UserInfo
 my $sth = $dbh->prepare($query);
 $sth->execute();
 
-my %userMap = ();
+my %userMap = ('nobody' => {name=>'WebStar_nobody', active=>JSON::false, email=>'nobody@softbrands.com', fullname=>'Nobody Imported'});
 
 # Releases ('5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE')
 
@@ -148,6 +148,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 	if ($hashref->{assignee})
 	{
 		$hashref->{assignee} = GetUser($hashref->{assignee});
+	} else {
+		$hashref->{assignee} = GetUser('nobody');
 	}
 	if ($hashref->{reporter})
 	{
@@ -192,6 +194,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 		}
 	}
 	
+	delete $hashref->{description} if (not $hashref->{description});
+	delete $hashref->{resolved} if (not $hashref->{resolved});
 	delete $hashref->{SDRNum};
 	delete $hashref->{ReportedPriority};
 	delete $hashref->{Source};
@@ -516,6 +520,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 	if ($resolution{assignee})
 	{
 		$resolution{assignee} = GetUser($resolution{assignee});
+	} else {
+		$resolution{assignee} = GetUser('nobody');
 	}
 
 	if ($resolution{ReportedPriority})
@@ -548,7 +554,6 @@ while (my $hashref = $sth->fetchrow_hashref())
 		my $dummyBug =
 			 {externalId=>'D'.$resolution{TransmittalId}
 			,summary=>$resolution{summary}
-			,description=>$resolution{description}
 			,status=>$resolution{parentIssueStatus}
 			,issueType=>$resolution{parentIssueType}
 			,resolution=>$resolution{parentIssueResolution}
@@ -558,16 +563,15 @@ while (my $hashref = $sth->fetchrow_hashref())
 			,reporter=>$resolution{reporter}
 		};
 		
-		if ($resolution{components})
-		{
-			push $dummyBug->{components} = $resolution{components};
-		}
+		$dummyBug->{description} = $resolution{description} if ($resolution{description});
+		push $dummyBug->{components} = $resolution{components} if ($resolution{components});
 
 		$sdrLookup{'D'.$resolution{TransmittalId}} = $dummyBug;
 
 		push @dummyBugLinks, {sourceId => $resolution{externalId}, destinationId =>'D'.$resolution{TransmittalId}};
 	}
 	
+	delete $resolution{description} if (not $resolution{description});
 	delete $resolution{DocoNotes};		
 	delete $resolution{TransmittalId};
 	delete $resolution{FeatOrEnhNum};
@@ -776,7 +780,7 @@ sub GetReason {
 sub GetUser {
 	if (not $_[0] =~ m/\S/)
 	{
-		return '';
+		return 'WebStar_nobody';
 	}
 	if (exists $userMap{$_[0]})
 	{
