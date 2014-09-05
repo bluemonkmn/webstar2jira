@@ -10,8 +10,8 @@ chdir "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate" or die 'Failed to
 
 LogMsg('Starting labeling process ' . localtime());
 
-my $r75Labels = [
-	['7.50_GA', '2008-06-30T09:26:00'],
+my $r75GALabel = ['7.50_GA', '2008-06-30T09:26:00'];
+my $r75SPLabels = [
 	['7.50A_SP','2009-05-21T11:05:00'],
 	['7.50B_SP','2010-02-18T13:26:00'],
 	['7.50C_SP','2011-04-28T03:21:00'],
@@ -46,7 +46,7 @@ while(<CHLD_OUT>)
 }
 waitpid $pid, 0;
 
-for my $tx (@{$r75Labels})
+for my $tx (@{$r75SPLabels})
 {
 	my $label = $tx->[0];
 	my $dt = str2time($tx->[1]);
@@ -58,14 +58,13 @@ for my $tx (@{$r75Labels})
 
 if ($initialTran)
 {
-	print "Promote initial import of 7.50 tree in #$initialTran.\n";
-	AccuRev("promote -c \"Promote 7.50 GA from #$initialTran (representing import of initial DB) to root\" -s ${depot}_${prepend}7.50 -S ${rootStream} -t $initialTran");
+	print "Include initial import of 7.50 tree from #$initialTran.\n";
 } else {
 	die "Did not find initial transaction.";
 }
 
-my $gaDate = str2time($r75Labels->[0]->[1]);
-my @promoteTxns = ();
+my $gaDate = str2time($r75GALabel->[1]);
+my @promoteTxns = ($initialTran);
 foreach my $key (keys %transDates)
 {
 	my $lastDate = 0;
@@ -84,11 +83,27 @@ foreach my $key (keys %transDates)
 
 @promoteTxns = sort(@promoteTxns);
 
-foreach my $key (@promoteTxns)
-{
-	print "Promote $key from " . time2str("%c", $transDates{$key}->[0]) . "\n";
-	AccuRev("promote -c \"Promote 7.50 GA from #$key on " . $transDates{$key}->[0] . " to root\" -s ${depot}_${prepend}7.50 -S ${rootStream} -t $key");
-}
+my $xmlTranList = join("\n", map {"<id>$_</id>"} @promoteTxns);
+
+$xmlTranList = <<"~";
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions>
+$xmlTranList
+</transactions>
+~
+
+my $tranFile = $ENV{'temp'} . '\\Snapshot75.xml';
+
+open (my $fh, '>', $tranFile) or die "Failed to open $tranFile for writing: $!";
+print $fh $xmlTranList;
+close $fh;
+
+my $promoteCmd = "promote -Fx -c \"Promote 7.50 GA code as of " . time2str("%c", $gaDate) . " from ${depot}_${prepend}7.50 to ${rootStream}\" -s ${depot}_${prepend}7.50 -S ${rootStream} -l $tranFile";
+print "$promoteCmd\nWith xml:\n$xmlTranList\n";
+AccuRev($promoteCmd);
+unlink $tranFile or warn "Failed to clean up $tranFile: $!";
+
+MakeSnapshot($r75GALabel->[0], $rootStream, 'now');
 
 sub getTransNum {
 	my $latestTranDate = 0;
