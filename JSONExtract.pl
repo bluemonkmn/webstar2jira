@@ -27,8 +27,14 @@ my %userMap = ('nobody' => {name=>'WebStar_nobody', active=>JSON::false, email=>
 
 my $argCount = @ARGV;
 die 'Releases must be specified on command line.' if ($argCount == 0);
-my $multiRelease = 0;
-$multiRelease = 1 if (lc $ARGV[0] eq 'mr');
+my $subsetMode = 0; # 0 = specified release SDRs only; 1 = multi-release SDRs only; 2 = all releases in $allReleases
+my $userCSVMode = 0; # 1 = Only output user list in CSV form instead of everything in JSON format.
+$subsetMode = 1 if (lc $ARGV[0] eq 'mr');
+if (lc $ARGV[0] eq 'u')
+{
+	$subsetMode = 2;
+	$userCSVMode = 1;
+}
 my $releaseList = join(',', map { "'$_'" } @ARGV);
 # If a transmittal references an SDR from $allReleases, but not in $releaseList then this
 # run will not output the transmittal. If SDRs referenced by the transmittal are in neither
@@ -76,12 +82,12 @@ select SDRNum
 , case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P5' end priority
 , case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Resolved' else 'Awaiting Resolutions' end else
   case Status
-  when 'W' then case ReasonCode when 'Future Release' then 'Open' else 'Resolved' end
+  when 'W' then 'Resolved'
   when 'C' then 'Resolved'
-  else 'Accepted' end end status
+  else 'Open' end end status
 , case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Fixed' else 'Waiting' end else
   case Status when 'W' then case ReasonCode
-  when 'Future Release' then 'Unresolved'
+  when 'Future Release' then 'No Plans to Fix'
   when 'Need More Info' then 'Incomplete'
   when 'Mystery' then 'Cannot Reproduce'
   else 'Unresolved' end
@@ -128,11 +134,12 @@ from STAR..Resolution_SDRs rs
 group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum 
 ~
 
-if ($multiRelease)
-{
+if ($subsetMode == 0) {
+	$query .= "where Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
+} elsif ($subsetMode == 1) {
 	$query .= "where s.SDRNum in (select SDRNum from StarMap..MultiReleaseSdrs)";
 } else {
-	$query .= "where Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
+	$query .= "where s.Release in ($allReleases)";
 }
 
 $sth = $dbh->prepare($query);
@@ -234,11 +241,12 @@ from STAR..sdr_log l
 join STAR..sdr s on s.SDRNum = l.SDR_Num
 ~
 
-if ($multiRelease)
-{
+if ($subsetMode == 0) {
+	$query .= "where s.Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
+} elsif ($subsetMode == 1) {
 	$query .= "where s.SDRNum in (select SDRNum from StarMap..MultiReleaseSdrs)";
 } else {
-	$query .= "where s.Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
+	$query .= "where s.Release in ($allReleases)";
 }
 
 $sth = $dbh->prepare($query);
@@ -411,11 +419,12 @@ from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no 
 ~
 
-if ($multiRelease)
-{
+if ($subsetMode == 0) {
+	$query .= "where s.Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
+} elsif ($subsetMode == 1) {
 	$query .= "where s.SDRNum in (select SDRNum from StarMap..MultiReleaseSdrs)";
 } else {
-	$query .= "where s.Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
+	$query .= "where s.Release in ($allReleases)";
 }
 
 $sth = $dbh->prepare($query);
@@ -496,15 +505,16 @@ left join StarMap..ReleaseIDs ri on ri.ReleaseID = r.RlsLevelTarget
 left join STAR..sdr sd on sd.SDRNum = s.LastSDR 
 ~
 
-if ($multiRelease)
-{
+if ($subsetMode == 0) {
+	$query .= <<"~";
+	where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
+	and (s.SdrRelease is null and r.ReleaseLev in ($releaseList) or s.SdrRelease in ($releaseList))
+	and r.ReleaseLev in ($allReleases)
+~
+} elsif ($subsetMode == 1) {
 	$query .= "where r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
 } else {
-	$query .= <<"~";
-where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-and (s.SdrRelease is null and r.ReleaseLev in ($releaseList) or s.SdrRelease in ($releaseList))
-and r.ReleaseLev in ($allReleases)
-~
+	$query .= "where r.ReleaseLev in ($allReleases)";
 }
 
 $sth = $dbh->prepare($query);
@@ -546,6 +556,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 	if ($resolution{resolution} eq 'Fixed')
 	{
 		$resolution{fixedVersions} = $resolution{affectedVersions};
+	} else {
+		$resolution{fixedVersions} = $resolution{Branch};
 	}
 	$resolution{externalId} = '' . ($resolution{TransmittalId} + 100000);
 	$resolutions{$resolution{TransmittalId}} = \%resolution;
@@ -644,15 +656,16 @@ left join (
 	group by sr.TransmittalID) sd on sd.TransmittalID = r.TransmittalId 
 ~
 
-if ($multiRelease)
-{
+if ($subsetMode == 0) {
+	$query .= <<"~";
+	where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
+	and (sd.SdrRelease is null and r.ReleaseLev in ($releaseList) or sd.SdrRelease in ($releaseList))
+	and r.ReleaseLev in ($allReleases)
+~
+} elsif ($subsetMode == 1) {
 	$query .= "where r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
 } else {
-	$query .= <<"~";
-where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-and (sd.SdrRelease is null and r.ReleaseLev in ($releaseList) or sd.SdrRelease in ($releaseList))
-and r.ReleaseLev in ($allReleases)
-~
+	$query .= "where r.ReleaseLev in ($allReleases)";
 }
 
 $sth = $dbh->prepare($query);
@@ -714,15 +727,16 @@ while (my $transLog = $sth->fetchrow_hashref())
 $sth->finish;
 
 my $whereClause;
-if ($multiRelease)
-{
+if ($subsetMode == 0) {
+	$whereClause = <<"~";
+	where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
+	and (sd.SdrRelease is null and r.ReleaseLev in ($releaseList) or sd.SdrRelease in ($releaseList))
+	and r.ReleaseLev in ($allReleases)
+~
+} elsif ($subsetMode == 1) {
 	$whereClause = "where r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
 } else {
-	$whereClause = <<"~";
-where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-and (sd.SdrRelease is null and r.ReleaseLev in ($releaseList) or sd.SdrRelease in ($releaseList))
-and r.ReleaseLev in ($allReleases)
-~
+	$whereClause = "where r.ReleaseLev in ($allReleases)";
 }
 
 $query = <<"~";
@@ -762,14 +776,15 @@ where ss.Release in ($allReleases)
 ) s on s.TransmittalID = r.TransmittalId 
 ~
 
-if ($multiRelease)
-{
-	$query .= "where SDR_Num is not null and r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
-} else {
+if ($subsetMode == 0) {
 	$query .= <<"~";
 	where SDR_Num is not null and r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
 	and s.Release in ($releaseList) and r.ReleaseLev in ($allReleases)
 ~
+} elsif ($subsetMode == 1) {
+	$query .= "where SDR_Num is not null and r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
+} else {
+	$query .= "where s.Release in ($allReleases) and r.ReleaseLev in ($allReleases)";
 }
 
 $sth = $dbh->prepare($query);
@@ -788,11 +803,42 @@ for my $dummyLink (@dummyBugLinks)
 	push @links, {name=>'sub-task-link', %{$dummyLink}};
 }
 
-my %import = (users => [values %userMap], projects => [{name=>'JSON Importer Test', key=>'JIT',
-	components=>[keys %component_list], versions=>[map({name=>$_}, keys %version_list)],
-	issues=>[values %sdrLookup, values %resolutions]}],
-	links=>\@links);
-print $json->encode(\%import);
+if (exists $version_list{'8.0'})
+{
+	$version_list{'8.00'} = $version_list{'8.0'};
+	delete $version_list{'8.0'};
+}
+
+if (exists $version_list{'8_0'})
+{
+	$version_list{'8_00'} = $version_list{'8_0'};
+	delete $version_list{'8_0'};
+}
+
+for my $s (values %sdrLookup) {
+	@{$s->{affectedVersions}} = map($_ eq '8.0' ? '8.00' : $_, @{$s->{affectedVersions}}) if ($s->{affectedVersions});
+	@{$s->{fixedVersions}} = map($_ eq '8.0' ? '8.00' : $_, @{$s->{fixedVersions}}) if ($s->{fixedVersions});
+	@{$s->{affectedVersions}} = map($_ eq '8_0' ? '8_00' : $_, @{$s->{affectedVersions}}) if ($s->{affectedVersions});
+	@{$s->{fixedVersions}} = map($_ eq '8_0' ? '8_00' : $_, @{$s->{fixedVersions}}) if ($s->{fixedVersions});
+}
+
+if ($userCSVMode) {
+	print "name,email,fullname,active,group1,group2\n";
+	for my $u (values %userMap)
+	{
+		print $u->{name} . ',' . $u->{email} . ',' . $u->{fullname} . ',' . $u->{active} . ',';
+		print $u->{groups}->[0] if (exists $u->{groups}->[0]);
+		print ',';
+		print $u->{groups}->[1] if (exists $u->{groups}->[1]);
+		print "\n";
+	}	
+} else {
+	my %import = (users => [values %userMap], projects => [{name=>'JSON Importer Test', key=>'JIT',
+		components=>[keys %component_list], versions=>[map({name=>$_}, keys %version_list)],
+		issues=>[values %sdrLookup, values %resolutions]}],
+		links=>\@links);
+	print $json->encode(\%import);
+}
 
 # my %linkMap = ();
 # my %issMap = ();

@@ -53,7 +53,7 @@ for my $tx (@{$r75SPLabels})
 	my $lastTran = getTransNum($dt);
 	my $lastTranDt = time2str("%c", $transDates{$lastTran}->[0]);
 	print "$label -> $lastTran ($lastTranDt)\n";
-	MakeSnapshot($label, '7.50', $lastTran);
+	MakeSnapshot($label, "${depot}_${prepend}7.50", $lastTran);
 }
 
 if ($initialTran)
@@ -125,8 +125,9 @@ sub getTransNum {
 
 sub MakeSnapshot {
 	my $newStream = "${depot}_${prepend}" . $_[0];
-	my $basis = "${depot}_${prepend}" . $_[1];
+	my $basis = $_[1];
 	my $tranNum = $_[2];
+	die "Failed to specify snapshot timestamp." if (not $tranNum);
 	LogMsg("Create snapshot $newStream under $basis.");
 	AccuRev("mksnap -s $newStream -b $basis -t $tranNum");
 }

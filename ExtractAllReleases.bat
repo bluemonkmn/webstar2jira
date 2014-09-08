@@ -1,3 +1,4 @@
+JSONExtract.pl u > Users.csv
 JSONExtract.pl 5.10 > JSONExtract510.txt
 JSONExtract.pl 5.20 > JSONExtract520.txt
 JSONExtract.pl 6.00 > JSONExtract600.txt
@@ -9,7 +10,7 @@ JSONExtract.pl 7.20 > JSONExtract720.txt
 JSONExtract.pl 7.30 > JSONExtract730.txt
 JSONExtract.pl 7.40 > JSONExtract740.txt
 JSONExtract.pl 7.50 > JSONExtract750.txt
-JSONExtract.pl 8.00 > JSONExtract800.txt
+JSONExtract.pl 8.0 > JSONExtract80.txt
 JSONExtract.pl BI > JSONExtractBI.txt
 JSONExtract.pl FSE > JSONExtractFSE.txt
 JSONExtract.pl mr > JSONExtractMulti.txt
