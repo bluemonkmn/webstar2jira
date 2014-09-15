@@ -90,18 +90,18 @@ select SDRNum
   when 'Future Release' then 'No Plans to Fix'
   when 'Need More Info' then 'Incomplete'
   when 'Mystery' then 'Cannot Reproduce'
-  else 'Unresolved' end
+  else '' end -- Unresolved
   when 'C' then case ReasonCode
   when 'No Problem' then 'Works As Designed'
   when 'No Fix' then 'No Plans to Fix'
   when 'Duplicate' then 'Duplicate'
   when 'Fixed' then 'Fixed Other'
   else 'Fixed Other' end
-  else 'Unresolved' end end resolution
+  else '' end end resolution -- Unresolved
 , s.Submitter reporter
 , s.AssignedTo assignee
 , convert(varchar(25), DATEADD(hour, 5, s.Date_Reported), 126) created
---, convert(varchar(25), DATEADD(hour, 5, s.DateClosed), 126) resolutiondate
+, convert(varchar(25), DATEADD(hour, 5, s.DateClosed), 126) resolutionDate
 , isnull(r.JIRAVersion, s.Version) affectedVersions
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
@@ -217,7 +217,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	}
 	
 	delete $hashref->{description} if (not $hashref->{description});
-	delete $hashref->{resolutiondate} if (not $hashref->{resolutiondate});
+	delete $hashref->{resolutionDate} if (not $hashref->{resolutionDate});
 	delete $hashref->{SDRNum};
 	delete $hashref->{ReportedPriority};
 	delete $hashref->{Source};
@@ -473,7 +473,7 @@ select
 	,case r.WaitingOn
 	 when 'Done' then 'Fixed'
 	 when 'Pull' then 'Fixed'
-	 else 'Unresolved' end resolution
+	 else '' end resolution -- Unresolved
 	,isnull(ri.JIRAVersion, r.RlsLevelTarget) affectedVersions
 	,r.FunctionalArea
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
@@ -557,7 +557,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	{
 		$resolution{fixedVersions} = $resolution{affectedVersions};
 	} else {
-		$resolution{fixedVersions} = $resolution{Branch};
+		$resolution{fixedVersions} = [$resolution{Branch}];
 	}
 	$resolution{externalId} = '' . ($resolution{TransmittalId} + 100000);
 	$resolutions{$resolution{TransmittalId}} = \%resolution;
@@ -820,6 +820,30 @@ for my $s (values %sdrLookup) {
 	@{$s->{fixedVersions}} = map($_ eq '8.0' ? '8.00' : $_, @{$s->{fixedVersions}}) if ($s->{fixedVersions});
 	@{$s->{affectedVersions}} = map($_ eq '8_0' ? '8_00' : $_, @{$s->{affectedVersions}}) if ($s->{affectedVersions});
 	@{$s->{fixedVersions}} = map($_ eq '8_0' ? '8_00' : $_, @{$s->{fixedVersions}}) if ($s->{fixedVersions});
+	if ($s->{customFieldValues})
+	{
+		for my $f (values $s->{customFieldValues}) {
+			if ($f->{value} eq '8_0') {
+				$f->{value} = '8_00';
+			}
+		}
+	}
+}
+
+for my $t (values %resolutions) {
+	@{$t->{affectedVersions}} = map($_ eq '8.0' ? '8.00' : $_, @{$t->{affectedVersions}}) if ($t->{affectedVersions});
+	@{$t->{fixedVersions}} = map($_ eq '8.0' ? '8.00' : $_, @{$t->{fixedVersions}}) if ($t->{fixedVersions});
+	@{$t->{affectedVersions}} = map($_ eq '8_0' ? '8_00' : $_, @{$t->{affectedVersions}}) if ($t->{affectedVersions});
+	@{$t->{fixedVersions}} = map($_ eq '8_0' ? '8_00' : $_, @{$t->{fixedVersions}}) if ($t->{fixedVersions});
+	if ($t->{customFieldValues})
+	{
+		for my $f (values $t->{customFieldValues}) {
+			if ($f->{value} eq '8_0') {
+				$f->{value} = '8_00';
+			}
+		}
+	}
+	$t->{summary} =~ s/^\[8_0\] /\[8_00\] /;
 }
 
 if ($userCSVMode) {
@@ -834,7 +858,7 @@ if ($userCSVMode) {
 	}	
 } else {
 	my %import = (users => [values %userMap], projects => [{name=>'JSON Importer Test', key=>'JIT',
-		components=>[keys %component_list], versions=>[map({name=>$_}, keys %version_list)],
+		components=>[keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
 		issues=>[values %sdrLookup, values %resolutions]}],
 		links=>\@links);
 	print $json->encode(\%import);

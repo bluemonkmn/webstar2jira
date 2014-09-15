@@ -92,4 +92,4 @@ update ReleaseIDs set LanguageLabel = 'MainlandEnglish', HotfixLabel = 'HotFix'
 , JIRAVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 5) = '_MEHF'
 
-update ReleaseIDs set IsReleased = 0 where ReleaseID in ('7.50F','7.30M','7.40L','LEDO 5.10','BI 3','INAP 7.50.4','Visibar 5.5D')
+update ReleaseIDs set IsReleased = 0 where ReleaseID in ('7.50F','7.30M','7.40L','LEDO 5.10','BI 3','INAP 7.50.4','Visibar 5.5D','8.0')
