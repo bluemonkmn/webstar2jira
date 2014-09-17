@@ -24,6 +24,7 @@ my $sth = $dbh->prepare($query);
 $sth->execute();
 
 my %userMap = ('nobody' => {name=>'WebStar_nobody', active=>JSON::false, email=>'nobody@softbrands.com', fullname=>'Nobody Imported'});
+my %usersUsed = ();
 
 my $argCount = @ARGV;
 die 'Releases must be specified on command line.' if ($argCount == 0);
@@ -162,7 +163,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	{
 		$hashref->{assignee} = GetUser($hashref->{assignee});
 	} else {
-		$hashref->{assignee} = GetUser('nobody');
+		$hashref->{assignee} = GetUser('yatess');
 	}
 	if ($hashref->{reporter})
 	{
@@ -552,7 +553,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	{
 		$resolution{assignee} = GetUser($resolution{assignee});
 	} else {
-		$resolution{assignee} = GetUser('nobody');
+		die "${resolution{TransmittalId}} has no assignee";
 	}
 
 	if ($resolution{ReportedPriority})
@@ -578,6 +579,11 @@ while (my $hashref = $sth->fetchrow_hashref())
 		} else {
 			$resolution{labels} = [$resolution{HotfixLabel}];
 		}
+	}
+	
+	if (not $resolution{resolution})
+	{
+		$resolution{resolutionDate} = '';
 	}
 	
 	if ($resolution{SDRCount} == 0)
@@ -803,7 +809,7 @@ if ($userCSVMode) {
 		print "\n";
 	}	
 } else {
-	my %import = (users => [values %userMap], projects => [{name=>'JSON Importer Test', key=>'JIT',
+	my %import = (users => [values %usersUsed], projects => [{name=>'JSON Importer Test', key=>'JIT',
 		components=>[keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
 		issues=>[values %sdrLookup, values %resolutions]}],
 		links=>\@links);
@@ -883,12 +889,15 @@ sub GetReason {
 sub GetUser {
 	if (not $_[0] =~ m/\S/)
 	{
+		$usersUsed{'WebStar_nobody'} = $userMap{'WebStar_nobody'};
 		return 'WebStar_nobody';
 	}
 	if (exists $userMap{$_[0]})
 	{
+		$usersUsed{$_[0]} = $userMap{$_[0]};
 		return $userMap{$_[0]}->{name} // 'WebStar_' . $_[0];
 	}
 	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false, email=>$_[0] . '@softbrands.com'};
+	$usersUsed{$_[0]} = $userMap{$_[0]};
 	return 'WebStar_' . $_[0];
 }
