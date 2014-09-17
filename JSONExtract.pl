@@ -27,20 +27,14 @@ my %userMap = ('nobody' => {name=>'WebStar_nobody', active=>JSON::false, email=>
 
 my $argCount = @ARGV;
 die 'Releases must be specified on command line.' if ($argCount == 0);
-my $subsetMode = 0; # 0 = specified release SDRs only; 1 = multi-release SDRs only; 2 = all releases in $allReleases
+my $subsetMode = 1; # 0 = All releases; 1 = specified releases only.
 my $userCSVMode = 0; # 1 = Only output user list in CSV form instead of everything in JSON format.
-$subsetMode = 1 if (lc $ARGV[0] eq 'mr');
 if (lc $ARGV[0] eq 'u')
 {
-	$subsetMode = 2;
+	$subsetMode = 0;
 	$userCSVMode = 1;
 }
 my $releaseList = join(',', map { "'$_'" } @ARGV);
-# If a transmittal references an SDR from $allReleases, but not in $releaseList then this
-# run will not output the transmittal. If SDRs referenced by the transmittal are in neither
-# $releaseList nor $allReleases, then it will be output if ReleaseLev is in $releaseList.
-
-my $allReleases = "'5.10', '5.20', '6.00', '6.10', '6.20', '7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI', 'FSE'";
 
 while (my @userInfo = $sth->fetchrow_array())
 {	
@@ -77,7 +71,7 @@ while (my @userInfo = $sth->fetchrow_array())
 $sth->finish;
 
 $query = <<'~';
-select SDRNum
+select s.SDRNum
 , case Severity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
 , case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P5' end priority
 , case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Resolved' else 'Awaiting Resolutions' end else
@@ -109,7 +103,7 @@ select SDRNum
 , case ProbEnh when 'E' then 'Feature Enhancement' else 'Bug' end issueType
 , Source
 , Introduced
-, REPLACE(Release, '.', '_') Branch
+, REPLACE(s.Release, '.', '_') Branch
 ,case Source
  when 'Unknown' then 'Unknown'
  when 'Configuration' then 'Configuration'
@@ -128,18 +122,15 @@ select SDRNum
 , r.LanguageLabel
 from STAR..sdr s
 left join StarMap..ReleaseIDs r on s.[Version] = r.ReleaseID
+join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
 left join (
 select rs.SDR_Num, COUNT(*) TransCount
 from STAR..Resolution_SDRs rs
 group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum 
 ~
 
-if ($subsetMode == 0) {
-	$query .= "where Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
-} elsif ($subsetMode == 1) {
-	$query .= "where s.SDRNum in (select SDRNum from StarMap..MultiReleaseSdrs)";
-} else {
-	$query .= "where s.Release in ($allReleases)";
+if ($subsetMode == 1) {
+	$query .= "where ri.Release in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -239,14 +230,11 @@ select l.SDR_Num [issueKey]
 ,REPLACE(cast(l.[Description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [Description]
 from STAR..sdr_log l
 join STAR..sdr s on s.SDRNum = l.SDR_Num
+join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
 ~
 
-if ($subsetMode == 0) {
-	$query .= "where s.Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
-} elsif ($subsetMode == 1) {
-	$query .= "where s.SDRNum in (select SDRNum from StarMap..MultiReleaseSdrs)";
-} else {
-	$query .= "where s.Release in ($allReleases)";
+if ($subsetMode == 1) {
+	$query .= "where ri.Release in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -417,14 +405,11 @@ select sdr_no
 	, convert(varchar(25), dateadd(hour, 5, s.Date_Reported), 126) created
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no 
+join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
 ~
 
-if ($subsetMode == 0) {
-	$query .= "where s.Release in ($releaseList) and s.SDRNum not in (select SDRNum from StarMap..MultiReleaseSdrs)";
-} elsif ($subsetMode == 1) {
-	$query .= "where s.SDRNum in (select SDRNum from StarMap..MultiReleaseSdrs)";
-} else {
-	$query .= "where s.Release in ($allReleases)";
+if ($subsetMode == 1) {
+	$query .= "where ri.Release in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -490,11 +475,11 @@ select
 	,case when sd.Level3 is null then sd.Level2 else sd.Level2 + '_' + sd.Level3 end components
 from STAR..resolution r
 left join (
-select TransmittalID, count(*) SDRCount, max(SDR_Num) LastSDR, min(Release) SdrRelease
+select ssr.TransmittalID, count(*) SDRCount, max(SDR_Num) LastSDR, min(ss.Release) SdrRelease
 from STAR..Resolution_SDRs ssr
 join STAR..sdr ss on ssr.SDR_Num = ss.SDRNum
-where ss.Release in ($allReleases)
-group by TransmittalID
+join StarMap..ReleaseIssues ris on ris.SDRNum = ss.SDRNum
+group by ssr.TransmittalID
 ) s on s.TransmittalID = r.TransmittalId
 left join
 (select TransmittalID, MIN(entrydate) earliest, MAX(entrydate) latest
@@ -502,19 +487,12 @@ from STAR..trans_log
 group by TransmittalID) d
 on r.TransmittalId = d.TransmittalID
 left join StarMap..ReleaseIDs ri on ri.ReleaseID = r.RlsLevelTarget
+join StarMap..ReleaseIssues riss on riss.TransmittalId = r.TransmittalId
 left join STAR..sdr sd on sd.SDRNum = s.LastSDR 
 ~
 
-if ($subsetMode == 0) {
-	$query .= <<"~";
-	where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-	and (s.SdrRelease is null and r.ReleaseLev in ($releaseList) or s.SdrRelease in ($releaseList))
-	and r.ReleaseLev in ($allReleases)
-~
-} elsif ($subsetMode == 1) {
-	$query .= "where r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
-} else {
-	$query .= "where r.ReleaseLev in ($allReleases)";
+if ($subsetMode == 1) {
+	$query .= "where riss.Release in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -648,24 +626,11 @@ REPLACE(cast(xl.[description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) 
 ,xl.[role]
 from STAR..trans_log xl
 join STAR..resolution r on r.TransmittalId = xl.TransmittalID 
-left join (
-	select sr.TransmittalID, min(s.Release) SdrRelease
-	from STAR..Resolution_SDRs sr
-	join STAR..sdr s on s.SDRNum = sr.SDR_Num
-	where s.Release in ($allReleases)
-	group by sr.TransmittalID) sd on sd.TransmittalID = r.TransmittalId 
+join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
 ~
 
-if ($subsetMode == 0) {
-	$query .= <<"~";
-	where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-	and (sd.SdrRelease is null and r.ReleaseLev in ($releaseList) or sd.SdrRelease in ($releaseList))
-	and r.ReleaseLev in ($allReleases)
-~
-} elsif ($subsetMode == 1) {
-	$query .= "where r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
-} else {
-	$query .= "where r.ReleaseLev in ($allReleases)";
+if ($subsetMode == 1) {
+	$query .= "where ri.Release in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -726,17 +691,9 @@ while (my $transLog = $sth->fetchrow_hashref())
 
 $sth->finish;
 
-my $whereClause;
-if ($subsetMode == 0) {
-	$whereClause = <<"~";
-	where r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-	and (sd.SdrRelease is null and r.ReleaseLev in ($releaseList) or sd.SdrRelease in ($releaseList))
-	and r.ReleaseLev in ($allReleases)
-~
-} elsif ($subsetMode == 1) {
-	$whereClause = "where r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
-} else {
-	$whereClause = "where r.ReleaseLev in ($allReleases)";
+my $whereClause = '';
+if ($subsetMode == 1) {
+	$whereClause = "where ri.Release in ($releaseList)";
 }
 
 $query = <<"~";
@@ -744,12 +701,7 @@ select f.TransmittalID, isnull(f.FileToShip, '') + CHAR(9) + isnull(f.FileChange
 + isnull(f.RevisionLevelFrom, '') + '=>' + isnull(f.RevisionLevelTo, '')
 from STAR..FileChanges f
 join STAR..resolution r on r.TransmittalId = f.TransmittalId
-left join (
-	select sr.TransmittalID, min(s.Release) SdrRelease
-	from STAR..Resolution_SDRs sr
-	join STAR..sdr s on s.SDRNum = sr.SDR_Num
-	where s.Release in ($allReleases)
-	group by sr.TransmittalID) sd on sd.TransmittalID = r.TransmittalId
+join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
 $whereClause
 order by f.TransmittalID, f.FCIndex
 ~
@@ -769,22 +721,16 @@ $query = <<"~";
 select r.TransmittalId, s.SDR_Num, s.RowNum
 from STAR..resolution r
 left join (
-select ssr.SDR_Num, ssr.TransmittalID, ss.Release, ROW_NUMBER() OVER (PARTITION BY TransmittalID ORDER BY SDR_Num DESC) RowNum
+select ssr.SDR_Num, ssr.TransmittalID, ss.Release, ROW_NUMBER() OVER (PARTITION BY ssr.TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs ssr
 join STAR..sdr ss on ss.SDRNum = ssr.SDR_Num
-where ss.Release in ($allReleases)
-) s on s.TransmittalID = r.TransmittalId 
+join StarMap..ReleaseIssues ri on ri.SDRNum = ss.SDRNum
+) s on s.TransmittalID = r.TransmittalId
+join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId 
 ~
 
-if ($subsetMode == 0) {
-	$query .= <<"~";
-	where SDR_Num is not null and r.TransmittalId not in (select TransmittalId from StarMap..MultiReleaseResolutions)
-	and s.Release in ($releaseList) and r.ReleaseLev in ($allReleases)
-~
-} elsif ($subsetMode == 1) {
-	$query .= "where SDR_Num is not null and r.TransmittalId in (select TransmittalId from StarMap..MultiReleaseResolutions)";
-} else {
-	$query .= "where s.Release in ($allReleases) and r.ReleaseLev in ($allReleases)";
+if ($subsetMode == 1) {
+	$query .= "where ri.Release in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
