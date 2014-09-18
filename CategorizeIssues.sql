@@ -16,7 +16,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_TransmittalId
 ON StarMap..ReleaseIssues (TransmittalId)
 WHERE TransmittalId IS NOT NULL
 GO
--- Create a list containin all the releases we are interested in migrating
+-- Create a list containing all the releases we are interested in migrating
 DECLARE @ReleaseList TABLE (
    Name varchar(10)
 )

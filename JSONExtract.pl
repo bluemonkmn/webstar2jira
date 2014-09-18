@@ -800,14 +800,14 @@ for my $t (values %resolutions) {
 
 if ($userCSVMode) {
 	print "name,email,fullname,active,group1,group2\n";
-	for my $u (values %userMap)
+	for my $u (values %usersUsed)
 	{
 		print $u->{name} . ',' . $u->{email} . ',' . $u->{fullname} . ',' . $u->{active} . ',';
 		print $u->{groups}->[0] if (exists $u->{groups}->[0]);
 		print ',';
 		print $u->{groups}->[1] if (exists $u->{groups}->[1]);
 		print "\n";
-	}	
+	}
 } else {
 	my %import = (users => [values %usersUsed], projects => [{name=>'JSON Importer Test', key=>'JIT',
 		components=>[keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
