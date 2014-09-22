@@ -809,7 +809,7 @@ if ($userCSVMode) {
 		print "\n";
 	}
 } else {
-	my %import = (users => [values %usersUsed], projects => [{name=>'JSON Importer Test', key=>'JIT',
+	my %import = (users => [values %usersUsed], projects => [{name=>'JSON Importer Test', key=>'FS',
 		components=>[keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
 		issues=>[values %sdrLookup, values %resolutions]}],
 		links=>\@links);
@@ -889,7 +889,7 @@ sub GetReason {
 sub GetUser {
 	if (not $_[0] =~ m/\S/)
 	{
-		$usersUsed{'WebStar_nobody'} = $userMap{'WebStar_nobody'};
+		$usersUsed{'nobody'} = $userMap{'nobody'};
 		return 'WebStar_nobody';
 	}
 	if (exists $userMap{$_[0]})
