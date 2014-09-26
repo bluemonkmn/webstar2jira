@@ -23,7 +23,7 @@ from StarMap..UserInfo
 my $sth = $dbh->prepare($query);
 $sth->execute();
 
-my %userMap = ('nobody' => {name=>'WebStar_nobody', active=>JSON::false, email=>'nobody@softbrands.com', fullname=>'Nobody Imported'});
+my %userMap = ();
 my %usersUsed = ();
 
 my $argCount = @ARGV;
@@ -439,11 +439,7 @@ select
 	 when 'S' then 'Bug'
 	 else 'Feature Enhancement' end parentIssueType
 	,s.SDRCount
-	,case r.WaitingOn
-	 when 'Analyst' then r.Analyst
-	 when 'Team Leader' then r.TeamLeader
-	 when 'QA' then isnull(r.QATester, r.TeamLeader)
-	 else r.TeamLeader end assignee
+	,isnull(r.QATester, r.Analyst) assignee
 	,case r.WaitingOn
 	 when 'Analyst' then 'Accepted'
 	 when 'Team Leader' then 'Development Complete'
@@ -505,7 +501,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 {
 	my %resolution = %{$hashref};
 	$resolution{issueType} = 'Resolution';
-	($resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{description}) =~ s/^(.{3}([^.\n]|\.\d)*)(.|\n|$).*$/$1/gs;
+	($resolution{summary} = $resolution{description}) =~ s/^\s*(\S.{2}([^.\n]|\.\d)*).*$/$1/gs;
+	$resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{summary};
 	$version_list{$resolution{'affectedVersions'}} = 1;
 	$version_list{$resolution{'Branch'}} = 1;
 	if ($resolution{components})
@@ -630,6 +627,8 @@ select xl.TransmittalID, convert(varchar(25), DATEADD(hour, 5, xl.entrydate), 12
 ,xl.person author, xl.linetype,
 REPLACE(cast(xl.[description] as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 ,xl.[role]
+,r.Analyst
+,r.QATester
 from STAR..trans_log xl
 join STAR..resolution r on r.TransmittalId = xl.TransmittalID 
 join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
@@ -652,7 +651,8 @@ while (my $transLog = $sth->fetchrow_hashref())
 		given (lc $transLog->{linetype})
 		{
 			when ('transmit') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'3',fromString=>'Accepted',to=>'5',toString=>'Development Complete'}]}
-			when ('built') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'5',fromString=>'Development Complete',to=>'10002',toString=>'Awaiting Verification'}]}
+			when ('built') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'5',fromString=>'Development Complete',to=>'10002',toString=>'Awaiting Verification'}
+										 ,{fieldType=>'jira',field=>'assignee',from=>GetUser($hist{Analyst}),fromString=>GetUser($hist{Analyst}),to=>GetUser($hist{QATester}),fromString=>GetUser($hist{QATester})}]}
 			when ('tested') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'10002',fromString=>'Awaiting Verification',to=>'10003',toString=>'Awaiting Release'}]}
 			when ('send back') {
 				if ($hist{description} =~ m/^to\:\s+Build/)
@@ -692,6 +692,8 @@ while (my $transLog = $sth->fetchrow_hashref())
 		delete $hist{linetype};
 		delete $hist{description};
 		delete $hist{role};
+		delete $hist{Analyst};
+		delete $hist{QATester};
 	}
 }
 
@@ -726,7 +728,7 @@ $sth->finish;
 $query = <<"~";
 select r.TransmittalId, s.SDR_Num, s.RowNum
 from STAR..resolution r
-left join (
+join (
 select ssr.SDR_Num, ssr.TransmittalID, ss.Release, ROW_NUMBER() OVER (PARTITION BY ssr.TransmittalID ORDER BY SDR_Num DESC) RowNum
 from STAR..Resolution_SDRs ssr
 join STAR..sdr ss on ss.SDRNum = ssr.SDR_Num
@@ -746,7 +748,14 @@ my @links = ();
 
 while (my $link = $sth->fetchrow_hashref())
 {
-	push @links, {name=>($link->{RowNum}==1)?"sub-task-link":"Fixed",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})};
+	if ($link->{RowNum} == 1) {
+		push @links, {"sub-task-link",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})};
+	} else {
+		push @links, {"Fixed",destinationIdId=>(''.($link->{TransmittalId}+100000)),sourceId=>(''.$link->{SDR_Num})};
+		if ($sdrLookup{$link->{SDR_Num}}->{resolution} eq 'Fixed') {
+			$sdrLookup{$link->{SDR_Num}}->{resolution} = 'Fixed Other';
+		}
+	}
 }
 $sth->finish;
 
@@ -809,7 +818,7 @@ if ($userCSVMode) {
 		print "\n";
 	}
 } else {
-	my %import = (users => [values %usersUsed], projects => [{name=>'JSON Importer Test', key=>'FS',
+	my %import = (users => [values %usersUsed], projects => [{name=>'Fourth Shift - FS', key=>'FS',
 		components=>[keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
 		issues=>[values %sdrLookup, values %resolutions]}],
 		links=>\@links);
@@ -889,8 +898,8 @@ sub GetReason {
 sub GetUser {
 	if (not $_[0] =~ m/\S/)
 	{
-		$usersUsed{'nobody'} = $userMap{'nobody'};
-		return 'WebStar_nobody';
+		$usersUsed{'NON'} = $userMap{'NON'};
+		return 'WebStar_NON';
 	}
 	if (exists $userMap{$_[0]})
 	{
