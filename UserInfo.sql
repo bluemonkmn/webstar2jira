@@ -20,7 +20,7 @@ update UserInfo set Active = 0 where NTUserName in
 ,'infor\kpaul','infor\ksteltzner','infor\lxing','infor\nharper'
 ,'infor\pjin','INFOR\pstreet','infor\pwang','infor\revans','infor\rpanneerselvamr'
 ,'infor\rsharp','infor\ssun','infor\wguo2','infor\wzhang2'
-,'infor\zszhang')
+,'infor\zszhang', 'SOFTBRANDSAMER\bldadm')
 
 update UserInfo set FullName = 'Li Da' where FullName = 'Da Li'
 update UserInfo set FullName = 'Dai Fu' where FullName = 'Fu Dai'
