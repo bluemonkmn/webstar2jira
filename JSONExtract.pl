@@ -97,14 +97,13 @@ select s.SDRNum
 , s.AssignedTo assignee
 , convert(varchar(25), DATEADD(hour, 5, s.Date_Reported), 126) created
 , convert(varchar(25), DATEADD(hour, 5, s.DateClosed), 126) resolutionDate
-, isnull(r.JIRAVersion, s.Version) affectedVersions
+, ri.Version affectedVersions
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
 , REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
 , case ProbEnh when 'E' then 'Feature Enhancement' else 'Bug' end issueType
 , Source
 , Introduced
-, REPLACE(s.Release, '.', '_') Branch
 ,case Source
  when 'Unknown' then 'Unknown'
  when 'Configuration' then 'Configuration'
@@ -131,7 +130,7 @@ group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum
 ~
 
 if ($subsetMode == 1) {
-	$query .= "where ri.Release in ($releaseList)";
+	$query .= "where ri.ImportGroup in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -148,7 +147,6 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$component_list{$hashref->{'components'}} = 1;
 	$hashref->{'components'} = [$hashref->{'components'}];
 	$version_list{$hashref->{'affectedVersions'}} = 1;
-	$version_list{$hashref->{'Branch'}} = 1;
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
 	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
@@ -215,7 +213,6 @@ while (my $hashref = $sth->fetchrow_hashref())
 	delete $hashref->{Source};
 	delete $hashref->{SourceLabel};
 	delete $hashref->{Introduced};
-	delete $hashref->{Branch};
 	delete $hashref->{HotfixLabel};
 	delete $hashref->{LanguageLabel};
 }
@@ -235,7 +232,7 @@ join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
 ~
 
 if ($subsetMode == 1) {
-	$query .= "where ri.Release in ($releaseList)";
+	$query .= "where ri.ImportGroup in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -410,7 +407,7 @@ join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
 ~
 
 if ($subsetMode == 1) {
-	$query .= "where ri.Release in ($releaseList)";
+	$query .= "where ri.ImportGroup in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -456,7 +453,7 @@ select
 	 when 'Done' then 'Fixed'
 	 when 'Pull' then 'Fixed'
 	 else '' end resolution -- Unresolved
-	,isnull(ri.JIRAVersion, r.RlsLevelTarget) affectedVersions
+	,riss.Version fixedVersions
 	,r.FunctionalArea
 	,REPLACE(cast(r.ReadMe as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) [description]
 	,case SDRSeverity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
@@ -466,7 +463,7 @@ select
 	,convert(varchar(25), DATEADD(hour, 5, isnull(d.latest, getdate())), 126) updated
 	,FeatOrEnhNum
 	,r.Analyst Analyst
-	,REPLACE(r.ReleaseLev,'.','_') Branch
+	,riss.Branch
 	,ri.LanguageLabel
 	,ri.HotfixLabel
 	,case when sd.Level3 is null then sd.Level2 else sd.Level2 + '_' + sd.Level3 end components
@@ -489,7 +486,7 @@ left join STAR..sdr sd on sd.SDRNum = s.LastSDR
 ~
 
 if ($subsetMode == 1) {
-	$query .= "where riss.Release in ($releaseList)";
+	$query .= "where riss.ImportGroup in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -503,7 +500,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$resolution{issueType} = 'Resolution';
 	($resolution{summary} = $resolution{description}) =~ s/^\s*(\S.{2}([^.\n]|\.\d)*).*$/$1/gs;
 	$resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{summary};
-	$version_list{$resolution{'affectedVersions'}} = 1;
+	$version_list{$resolution{'fixedVersions'}} = 1;
 	$version_list{$resolution{'Branch'}} = 1;
 	if ($resolution{components})
 	{
@@ -528,13 +525,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 		{fieldName=>'Branch',value=>$resolution{Branch},fieldType=>'com.lawson.tools.jira.customfields:jira-integration-only-field'}
 	];
 	
-	$resolution{affectedVersions} = [$resolution{affectedVersions}];
-	if ($resolution{resolution} eq 'Fixed')
-	{
-		$resolution{fixedVersions} = $resolution{affectedVersions};
-	} else {
-		$resolution{fixedVersions} = [$resolution{Branch}];
-	}
+	$resolution{fixedVersions} = [$resolution{fixedVersions}];
 	$resolution{externalId} = '' . ($resolution{TransmittalId} + 100000);
 	$resolutions{$resolution{TransmittalId}} = \%resolution;
 	
@@ -593,7 +584,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 			,resolution=>$resolution{parentIssueResolution}
 			,assignee=>$resolution{assignee}
 			,created=>$resolution{created}
-			,affectedVersions=>$resolution{affectedVersions}
+			,affectedVersions=>$resolution{fixedVersions}
 			,reporter=>$resolution{reporter}
 		};
 		
@@ -635,7 +626,7 @@ join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
 ~
 
 if ($subsetMode == 1) {
-	$query .= "where ri.Release in ($releaseList)";
+	$query .= "where ri.ImportGroup in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
@@ -701,7 +692,7 @@ $sth->finish;
 
 my $whereClause = '';
 if ($subsetMode == 1) {
-	$whereClause = "where ri.Release in ($releaseList)";
+	$whereClause = "where ri.ImportGroup in ($releaseList)";
 }
 
 $query = <<"~";
@@ -738,7 +729,7 @@ join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
 ~
 
 if ($subsetMode == 1) {
-	$query .= "where ri.Release in ($releaseList)";
+	$query .= "where ri.ImportGroup in ($releaseList)";
 }
 
 $sth = $dbh->prepare($query);
