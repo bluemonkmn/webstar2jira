@@ -11,15 +11,25 @@ my $authURL = "$rootURL/auth/1";
 my $apiURL = "$rootURL/api/2";
 my $project = 'FS';
 
-print "User: ";
+my %compAssigns = ();
+
+while (<>)
+{
+	if (m/^([^,]*),([^,\n]*)$/)
+	{
+		$compAssigns{$1} = $2;
+	}
+}
+
+print STDERR "User: ";
 my $user = <>;
 chomp $user;
-print "Password: ";
+print STDERR "Password: ";
 ReadMode('noecho');
 my $password = <>;
 ReadMode(0);
 chomp $password;
-print "\n";
+print STDERR "\n";
 
 my $response = $ua->get("$apiURL/project/$project");
 if (not $response->is_success) {
@@ -31,14 +41,19 @@ my $request = new HTTP::Request 'PUT', "$apiURL/component";
 $request->authorization_basic($user, $password);
 $request->content_type('application/json');
 
+print "ComponentId,ComponentName,Assignee,Result\n";
+
 for my $component (@{$projectData->{components}})
 {
-	p $component;
-	print $component->{id} . ': ' . $component->{name} . "\n";
+	print $component->{id} . ', ' . $component->{name} . ',';
 	my $user = '';
-	if ($component->{name} =~ m/^SYSM_/)
+	if (exists $compAssigns{$component->{name}})
 	{
-		$user = "ydeng";
+		$user = $compAssigns{$component->{name}};
+		delete $compAssigns{$component->{name}};
+		print "$user,";
+	} else {
+		print "not specified,";
 	}
 	if ($user)
 	{
@@ -47,12 +62,17 @@ for my $component (@{$projectData->{components}})
 		$response = $ua->request($request);
 		if ($response->is_success)
 		{
-			print $component->{name} . "->$user\n";
+			print "success\n";
 		} else {
 			print STDERR $response->decoded_content . "\n";
 			die $response->status_line . "\n";
-		}	
+		}
 	} else {
-		print $component->{name} . " no change\n";
+		print "no change\n";
 	}
+}
+
+for my $compName (keys %compAssigns)
+{
+	print "Not Found,$compName,,\n";
 }
