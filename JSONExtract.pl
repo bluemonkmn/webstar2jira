@@ -643,7 +643,7 @@ while (my $transLog = $sth->fetchrow_hashref())
 		{
 			when ('transmit') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'3',fromString=>'Accepted',to=>'5',toString=>'Development Complete'}]}
 			when ('built') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'5',fromString=>'Development Complete',to=>'10002',toString=>'Awaiting Verification'}
-										 ,{fieldType=>'jira',field=>'assignee',from=>GetUser($hist{Analyst}),fromString=>GetUser($hist{Analyst}),to=>GetUser($hist{QATester}),fromString=>GetUser($hist{QATester})}]}
+										 ,{fieldType=>'jira',field=>'assignee',from=>GetUser($hist{Analyst}),fromString=>GetUser($hist{Analyst}),to=>GetUser($hist{QATester}),toString=>GetUser($hist{QATester})}]}
 			when ('tested') {$hist{items}=[{fieldType=>'jira',field=>'status',from=>'10002',fromString=>'Awaiting Verification',to=>'10003',toString=>'Awaiting Release'}]}
 			when ('send back') {
 				if ($hist{description} =~ m/^to\:\s+Build/)
@@ -740,9 +740,9 @@ my @links = ();
 while (my $link = $sth->fetchrow_hashref())
 {
 	if ($link->{RowNum} == 1) {
-		push @links, {"sub-task-link",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})};
+		push @links, {name=>"sub-task-link",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})};
 	} else {
-		push @links, {"Fixed",destinationIdId=>(''.($link->{TransmittalId}+100000)),sourceId=>(''.$link->{SDR_Num})};
+		push @links, {name=>"Fixed",destinationId=>(''.($link->{TransmittalId}+100000)),sourceId=>(''.$link->{SDR_Num})};
 		if ($sdrLookup{$link->{SDR_Num}}->{resolution} eq 'Fixed') {
 			$sdrLookup{$link->{SDR_Num}}->{resolution} = 'Fixed Other';
 		}

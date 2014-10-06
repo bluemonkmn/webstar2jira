@@ -437,9 +437,9 @@ ISTM_IVI3,lguo
 ISTM_IXRU,lguo
 Job Stream,bmarty
 KPI,jmoe
-KPI Display,jmoe
-KPI Display_FS Database,jmoe
-KPI Display_Other Database,jmoe
+KPI Display,sduepner
+KPI Display_FS Database,sduepner
+KPI Display_Other Database,sduepner
 KPI_AP,jmoe
 KPI_AR,jmoe
 KPI_Bank,jmoe
@@ -486,7 +486,7 @@ MISC_ALL,sduepner
 MISC_CLIENT,sduepner
 MISC_EXTRACT,sduepner
 MISC_FS EXPLORER,sduepner
-MISC_INSTALL,sduepner
+MISC_INSTALL,jmoe
 MISC_MISC,sduepner
 MISC_ODBC,sduepner
 MISC_PRINT,sduepner
@@ -804,7 +804,7 @@ SYSM_VATT,jliu
 SYSM_WACF,jliu
 System Admin,lguo
 System Admin_Batch Tasks,lguo
-System Admin_Module Communications,lguo
+System Admin_Module Communications,jmoe
 System Admin_System Maintenance,lguo
 System Admin_System Setup,lguo
 Translation,jmoe
