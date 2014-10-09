@@ -75,12 +75,18 @@ $query = <<'~';
 select s.SDRNum
 , case Severity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
 , case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P5' end priority
-, case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Resolved' else 'Awaiting Resolutions' end else
-  case Status
-  when 'W' then 'Resolved'
-  when 'C' then 'Resolved'
-  else 'Open' end end status
-, case when tc.TransCount > 0 then case when r.IsReleased=1 then 'Fixed' else 'Waiting' end else
+, case when tc.TransCount > 0 and Status <> 'O' then
+	case when r.IsReleased=1 and tc.UnresolvedCount = 0 then 'Resolved'
+	else 'Awaiting Resolutions' end 
+  else case Status
+    when 'W' then 'Resolved'
+    when 'C' then 'Resolved'
+    else case when tc.TransCount > 0 then 'Awaiting Resolutions'
+	else 'Open' end end end status
+, case when tc.TransCount > 0 then
+	case when r.IsReleased=1 and tc.UnresolvedCount = 0 and tc.MinLastSDR = s.SDRNum then 'Fixed'
+	when r.IsReleased=1 and tc.UnresolvedCount = 0 and tc.MinLastSDR > s.SDRNum then 'Fixed Other'
+	else 'Waiting' end else
   case Status when 'W' then case ReasonCode
   when 'Future Release' then 'No Plans to Fix'
   when 'Need More Info' then 'Incomplete'
@@ -98,6 +104,8 @@ select s.SDRNum
 , convert(varchar(25), DATEADD(hour, 5, s.Date_Reported), 126) created
 , convert(varchar(25), DATEADD(hour, 5, s.DateClosed), 126) resolutionDate
 , ri.Version affectedVersions
+, s.Release OrigRelease
+, s.Version OrigVersion
 , case when s.Level3 is null then s.Level2 else s.Level2 + '_' + s.Level3 end components
 , ProblemBrief summary
 , REPLACE(cast(ProblemDetail as nvarchar(max)), CHAR(13) + CHAR(10), CHAR(10)) description
@@ -124,8 +132,17 @@ from STAR..sdr s
 left join StarMap..ReleaseIDs r on s.[Version] = r.ReleaseID
 join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
 left join (
-select rs.SDR_Num, COUNT(*) TransCount
+select rs.SDR_Num, COUNT(*) TransCount,
+ sum(case when rn.WaitingOn in ('Pull', 'Done') then 0 else 1 end) UnresolvedCount,
+ min(ls.LastSDR) MinLastSDR
 from STAR..Resolution_SDRs rs
+join STAR..Resolution rn on rn.TransmittalId = rs.TransmittalID
+left join (select max(rs2.SDR_Num) LastSDR, rs2.TransmittalID
+			from STAR..Resolution_SDRs rs2
+			join StarMap..ReleaseIssues lsri
+			on lsri.TransmittalID = rs2.TransmittalID
+			group by rs2.TransmittalID) ls
+	on ls.TransmittalID = rn.TransmittalId
 group by rs.SDR_Num) tc on tc.SDR_Num = s.SDRNum 
 ~
 
@@ -140,6 +157,7 @@ my $json = JSON->new->allow_nonref->pretty->ascii;
 my %sdrLookup = ();
 my %component_list = ();
 my %version_list = ();
+my %origVersionLookup = (); # Look up an SDR's original version field by SDR number.
 my @dummyBugLinks = ();
 
 while (my $hashref = $sth->fetchrow_hashref())
@@ -206,6 +224,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 		}
 	}
 	
+	$origVersionLookup{$hashref->{SDRNum}} = {OrigRelease=>$hashref->{OrigRelease}, OrigVersion=>$hashref->{OrigVersion}};
+	
 	delete $hashref->{description} if (not $hashref->{description});
 	delete $hashref->{resolutionDate} if (not $hashref->{resolutionDate});
 	delete $hashref->{SDRNum};
@@ -215,6 +235,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 	delete $hashref->{Introduced};
 	delete $hashref->{HotfixLabel};
 	delete $hashref->{LanguageLabel};
+	delete $hashref->{OrigRelease};
+	delete $hashref->{OrigVersion};
 }
 
 $sth->finish;
@@ -242,8 +264,6 @@ while (my $comments = $sth->fetchrow_hashref())
 {
 	my $sdr = $sdrLookup{$comments->{'issueKey'}};
 	next if (!$sdr);
-	# Remove the issueKey column from the object before encoding it into JSON
-	delete $comments->{'issueKey'};		
 	
 	my %history = ();
 	my $histTo;
@@ -322,6 +342,17 @@ while (my $comments = $sth->fetchrow_hashref())
 		}
 	}
 
+	if ((lc $comments->{LineType} eq 'reported') and ($origVersionLookup{$comments->{issueKey}}->{OrigRelease} eq 'FSE'))
+	{
+		if ($comments->{Description})
+		{
+			$comments->{Description} .= "\n"
+		} else {
+			$comments->{Description} = '';
+		}
+		$comments->{Description} .= 'Originated from version ' . $origVersionLookup{$comments->{issueKey}}->{OrigVersion} . "\n" ;
+	}
+
 	if (%history)
 	{
 		$history{author} = $comments->{author};
@@ -389,6 +420,7 @@ while (my $comments = $sth->fetchrow_hashref())
 	delete $comments->{'ReasonCode'};
 	delete $comments->{'HistoryUser'};
 	delete $comments->{'Description'};
+	delete $comments->{'issueKey'};
 }
 $sth->finish;
 
@@ -401,6 +433,7 @@ select sdr_no
 	+ case when len(isnull(cust_version, '')) > 0 then char(10) + 'At version: ' + cust_version else '' end
 	+ case when len(rtrim(notes)) > 0 then char(10) + ltrim(rtrim(isnull(notes,''))) else '' end body
 	, convert(varchar(25), dateadd(hour, 5, s.Date_Reported), 126) created
+	, s.Submitter
 from STAR..customer c
 left join STAR..sdr s on s.SDRNum = c.sdr_no 
 join StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
@@ -418,11 +451,11 @@ while (my $hashref = $sth->fetchrow_hashref())
 	my $sdr = $sdrLookup{$hashref->{sdr_no}};
 	if ($sdr->{comments})
 	{
-		push $sdr->{comments}, {body=>$hashref->{body}, created=>$hashref->{created}};
+		push $sdr->{comments}, {body=>$hashref->{body}, created=>$hashref->{created}, author=>GetUser($hashref->{Submitter})};
 	}
 	else
 	{
-		$sdr->{comments} = [{body=>$hashref->{body}, created=>$hashref->{created}}];
+		$sdr->{comments} = [{body=>$hashref->{body}, created=>$hashref->{created}, author=>GetUser($hashref->{Submitter})}];
 	}
 }
 
@@ -467,6 +500,7 @@ select
 	,ri.LanguageLabel
 	,ri.HotfixLabel
 	,case when sd.Level3 is null then sd.Level2 else sd.Level2 + '_' + sd.Level3 end components
+	,ProblemBrief summary
 from STAR..resolution r
 left join (
 select ssr.TransmittalID, count(*) SDRCount, max(SDR_Num) LastSDR, min(ss.Release) SdrRelease
@@ -498,7 +532,10 @@ while (my $hashref = $sth->fetchrow_hashref())
 {
 	my %resolution = %{$hashref};
 	$resolution{issueType} = 'Resolution';
-	($resolution{summary} = $resolution{description}) =~ s/^\s*(\S.{2}([^.\n]|\.\d)*).*$/$1/gs;
+	if (not $resolution{summary})
+	{
+		($resolution{summary} = $resolution{description}) =~ s/^\s*(\S.{2}([^.\n]|\.\d)*).*$/$1/gs;
+	}
 	$resolution{summary} = '[' . $resolution{Branch} . '] ' . $resolution{summary};
 	$version_list{$resolution{'fixedVersions'}} = 1;
 	$version_list{$resolution{'Branch'}} = 1;
@@ -743,9 +780,6 @@ while (my $link = $sth->fetchrow_hashref())
 		push @links, {name=>"sub-task-link",sourceId=>(''.($link->{TransmittalId}+100000)),destinationId=>(''.$link->{SDR_Num})};
 	} else {
 		push @links, {name=>"Fixed",destinationId=>(''.($link->{TransmittalId}+100000)),sourceId=>(''.$link->{SDR_Num})};
-		if ($sdrLookup{$link->{SDR_Num}}->{resolution} eq 'Fixed') {
-			$sdrLookup{$link->{SDR_Num}}->{resolution} = 'Fixed Other';
-		}
 	}
 }
 $sth->finish;

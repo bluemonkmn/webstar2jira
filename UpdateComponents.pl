@@ -31,11 +31,16 @@ ReadMode(0);
 chomp $password;
 print STDERR "\n";
 
+print STDERR "Retrieving project info from $apiURL/project/$project\n";
 my $response = $ua->get("$apiURL/project/$project");
 if (not $response->is_success) {
 	die $response->status_line;
 }
+print STDERR "Project info retrieved.\n";
+
 my $projectData = decode_json $response->decoded_content;
+
+print STDERR "Project info parsed.\n";
 
 my $request = new HTTP::Request 'PUT', "$apiURL/component";
 $request->authorization_basic($user, $password);
@@ -45,6 +50,7 @@ print "ComponentId,ComponentName,Assignee,Result\n";
 
 for my $component (@{$projectData->{components}})
 {
+	print STDERR 'Processing ' . $component->{id} . ' (' . $component->{name} . ").\n";
 	print $component->{id} . ', ' . $component->{name} . ',';
 	my $user = '';
 	if (exists $compAssigns{$component->{name}})
