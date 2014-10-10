@@ -93,7 +93,8 @@ BEGIN
       SET @affected = @@ROWCOUNT
 
       INSERT INTO StarMap..ReleaseIssues(TransmittalId, ImportGroup, Branch, [Version])
-      SELECT r.TransmittalId, @CurRelease, rd.JIRABranch, rd.FixedVersion
+      SELECT r.TransmittalId, @CurRelease, rd.JIRABranch,
+      CASE WHEN r.WaitingOn IN ('Pull', 'Done') THEN rd.FixedVersion ELSE rd.JIRABranch END
       FROM StarMap..ReleaseIssues ri
       JOIN STAR..Resolution_SDRs rs ON ri.SDRNum = rs.SDR_Num
       JOIN STAR..resolution r ON rs.TransmittalID = r.TransmittalId
@@ -101,7 +102,7 @@ BEGIN
       JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = r.ReleaseLev and rd.ReleaseID = r.RlsLevelTarget
       LEFT JOIN StarMap..ReleaseIssues riDup ON riDup.TransmittalId = r.TransmittalId
       WHERE riDup.ImportGroup IS NULL
-      GROUP BY r.TransmittalId, rd.JIRABranch, rd.FixedVersion
+      GROUP BY r.TransmittalId, r.WaitingOn, rd.JIRABranch, rd.FixedVersion
 
       SET @affected = @affected + @@ROWCOUNT
    END
@@ -140,7 +141,8 @@ BEGIN
    SET @affected = @@ROWCOUNT
 
    INSERT INTO StarMap..ReleaseIssues(TransmittalId, ImportGroup, Branch, [Version])
-   SELECT r.TransmittalId, 'Open', rd.JIRABranch, rd.FixedVersion
+   SELECT r.TransmittalId, 'Open', rd.JIRABranch,
+   CASE WHEN r.WaitingOn IN ('Pull', 'Done') THEN rd.FixedVersion ELSE rd.JIRABranch END
    FROM StarMap..ReleaseIssues ri
    JOIN STAR..Resolution_SDRs rs ON ri.SDRNum = rs.SDR_Num
    JOIN STAR..resolution r ON rs.TransmittalID = r.TransmittalId
@@ -148,7 +150,7 @@ BEGIN
    JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = r.ReleaseLev and rd.ReleaseID = r.RlsLevelTarget
    LEFT JOIN StarMap..ReleaseIssues riDup ON riDup.TransmittalId = r.TransmittalId
    WHERE riDup.ImportGroup IS NULL
-   GROUP BY r.TransmittalId, rd.JIRABranch, rd.FixedVersion
+   GROUP BY r.TransmittalId, r.WaitingOn, rd.JIRABranch, rd.FixedVersion
 
    SET @affected = @affected + @@ROWCOUNT
 END
