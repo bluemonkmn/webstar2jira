@@ -75,30 +75,32 @@ $query = <<'~';
 select s.SDRNum
 , case Severity when 'A' then '1 - Show-Stopper' when 'B' then '2 - Critical' when 'C' then '3 - Major' when 'D' then '4 - Minor' else null end ReportedPriority
 , case Priority when '@' then 'P1' when 'ß' then 'P2' when '*' then 'P3' when 'H' then 'P4' else 'P5' end priority
-, case when tc.TransCount > 0 and Status <> 'O' then
-	case when r.IsReleased=1 and tc.UnresolvedCount = 0 then 'Resolved'
-	else 'Awaiting Resolutions' end 
-  else case Status
-    when 'W' then 'Resolved'
-    when 'C' then 'Resolved'
-    else case when tc.TransCount > 0 then 'Awaiting Resolutions'
-	else 'Open' end end end status
+, case when tc.TransCount > 0 and tc.MinLastSDR = s.SDRNum then
+	case when Status = 'C' and tc.UnresolvedCount = 0 and r.IsReleased = 1 then 'Resolved'
+	else 'Awaiting Resolutions' end
+  else case when Status = 'O' then 'Open'
+  else 'Resolved' end end status
 , case when tc.TransCount > 0 then
-	case when r.IsReleased=1 and tc.UnresolvedCount = 0 and tc.MinLastSDR = s.SDRNum then 'Fixed'
-	when r.IsReleased=1 and tc.UnresolvedCount = 0 and tc.MinLastSDR > s.SDRNum then 'Fixed Other'
-	else 'Waiting' end else
-  case Status when 'W' then case ReasonCode
-  when 'Future Release' then 'No Plans to Fix'
-  when 'Need More Info' then 'Incomplete'
-  when 'Mystery' then 'Cannot Reproduce'
-  else '' end -- Unresolved
-  when 'C' then case ReasonCode
-  when 'No Problem' then 'Works As Designed'
-  when 'No Fix' then 'No Plans to Fix'
-  when 'Duplicate' then 'Duplicate'
-  when 'Fixed' then 'Fixed Other'
-  else 'Fixed Other' end
-  else '' end end resolution -- Unresolved
+    case when tc.MinLastSDR > s.SDRNum then
+      case when Status = 'O' then '' /* Unresolved */ else 'Fixed Other' end
+    else
+      case when Status = 'C' and tc.UnresolvedCount = 0 and r.IsReleased = 1 then
+	  'Fixed' else 'Waiting' end
+    end
+  else
+    case Status when 'W' then
+	  case ReasonCode
+      when 'Future Release' then 'No Plans to Fix'
+      when 'Need More Info' then 'Incomplete'
+      when 'Mystery' then 'Cannot Reproduce'
+      else '' end -- Unresolved
+    when 'C' then
+	  case ReasonCode
+      when 'No Problem' then 'Works As Designed'
+      when 'No Fix' then 'No Plans to Fix'
+      else 'No Longer Valid' end
+    else '' end
+  end resolution -- Unresolved
 , s.Submitter reporter
 , s.AssignedTo assignee
 , convert(varchar(25), DATEADD(hour, 5, s.Date_Reported), 126) created
@@ -153,7 +155,7 @@ if ($subsetMode == 1) {
 $sth = $dbh->prepare($query);
 $sth->execute() or die 'Failed to execute SDR query.';
 
-my $json = JSON->new->allow_nonref->pretty->ascii;
+my $json = JSON->new->allow_nonref->pretty->ascii->canonical();
 my %sdrLookup = ();
 my %component_list = ();
 my %version_list = ();
@@ -739,7 +741,7 @@ from STAR..FileChanges f
 join STAR..resolution r on r.TransmittalId = f.TransmittalId
 join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
 $whereClause
-order by f.TransmittalID, f.FCIndex
+order by f.TransmittalID, f.FCIndex, f.FileToShip desc, f.FileChanged
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
@@ -843,9 +845,10 @@ if ($userCSVMode) {
 		print "\n";
 	}
 } else {
-	my %import = (users => [values %usersUsed], projects => [{name=>'Fourth Shift - FS', key=>'FS',
-		components=>[keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
-		issues=>[values %sdrLookup, values %resolutions]}],
+	my %import = (users => [sort { $a->{name} cmp $b->{name} } values %usersUsed],
+		projects => [{name=>'Fourth Shift - FS', key=>'FS',
+		components=>[sort keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
+		issues=>[sort { $a->{externalId} cmp $b->{externalId} } (values %sdrLookup, values %resolutions)]}],
 		links=>\@links);
 	print $json->encode(\%import);
 }
@@ -930,6 +933,14 @@ sub GetUser {
 	{
 		$usersUsed{$_[0]} = $userMap{$_[0]};
 		return $userMap{$_[0]}->{name} // 'WebStar_' . $_[0];
+	}
+	for (keys %userMap)
+	{
+		if ($userMap{$_}->{name} eq 'WebStar_' . $_[0])
+		{
+			$usersUsed{$_} = $userMap{$_};			
+			return $userMap{$_}->{name};
+		}
 	}
 	$userMap{$_[0]} = {name=>'WebStar_' . $_[0], active=>JSON::false, email=>$_[0] . '@softbrands.com'};
 	$usersUsed{$_[0]} = $userMap{$_[0]};
