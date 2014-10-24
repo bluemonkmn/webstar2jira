@@ -480,10 +480,10 @@ select
 	 when 'QA' then 'Awaiting Verification'
 	 when 'Pull' then case when ri.IsReleased=0 then 'Awaiting Release' else 'Resolved' end
 	 when 'Done' then 'Resolved' end [status]
-	,case when r.WaitingOn='Analyst' or ri.IsReleased=0 then 'Awaiting Resolutions'
-	 else 'Resolved' end parentIssueStatus
-	,case when r.WaitingOn='Analyst' or ri.IsReleased=0 then 'Waiting'
-	 else 'Fixed' end parentIssueResolution
+	,case when r.WaitingOn in ('Pull', 'Done') and ri.IsReleased=1 then 'Resolved'
+	 else 'Awaiting Resolutions' end  parentIssueStatus
+	,case when r.WaitingOn in ('Pull', 'Done') and ri.IsReleased=1 then 'Fixed'
+	 else 'Waiting' end parentIssueResolution
 	,case r.WaitingOn
 	 when 'Done' then 'Fixed'
 	 when 'Pull' then 'Fixed'
