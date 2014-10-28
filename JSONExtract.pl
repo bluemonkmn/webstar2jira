@@ -550,8 +550,8 @@ while (my $hashref = $sth->fetchrow_hashref())
 	}
 	if ($resolution{DocoNotes})
 	{
-		$resolution{description} .= "\n" . $resolution{DocoNotes};
-		$resolution{labels} = ['documentation'];
+		$resolution{description} .= "\nDocumentation Notes: " . $resolution{DocoNotes};
+		$resolution{labels} = ['Documentation'];
 	}
 
 	if ($resolution{FunctionalArea} =~ m/\S/)
@@ -736,7 +736,7 @@ if ($subsetMode == 1) {
 
 $query = <<"~";
 select f.TransmittalID, isnull(f.FileToShip, '') + CHAR(9) + isnull(f.FileChanged, '') + CHAR(9) 
-+ isnull(f.RevisionLevelFrom, '') + '=>' + isnull(f.RevisionLevelTo, '')
++ isnull(f.RevisionLevelFrom, '') + CHAR(9) + isnull(f.RevisionLevelTo, '')
 from STAR..FileChanges f
 join STAR..resolution r on r.TransmittalId = f.TransmittalId
 join StarMap..ReleaseIssues ri on ri.TransmittalId = r.TransmittalId
@@ -745,11 +745,16 @@ order by f.TransmittalID, f.FCIndex, f.FileToShip desc, f.FileChanged
 ~
 $sth = $dbh->prepare($query);
 $sth->execute();
+my $changeHeading = "Files To Ship\tFiles Changed\tFrom\tTo";
 while(my @fileChange = $sth->fetchrow_array())
 {
 	if (exists $resolutions{$fileChange[0]})
 	{
 		my $resolution = $resolutions{$fileChange[0]};
+		if (index($resolution->{description}, $changeHeading) == -1)
+		{
+			$resolution->{description} .= "\n\n$changeHeading";
+		}
 		$resolution->{description} .= "\n" . @fileChange[1];
 	}
 }
