@@ -245,7 +245,7 @@ $sth->finish;
 
 $query = <<'~';
 select l.SDR_Num [issueKey]
-,convert(varchar(25), DATEADD(hour, -5, l.EntryDate), 126) created
+,convert(varchar(25), DATEADD(hour, 5, l.EntryDate), 126) created
 ,l.Person author
 ,l.LineType
 ,l.ReasonCode
