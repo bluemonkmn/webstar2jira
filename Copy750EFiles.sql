@@ -58,7 +58,8 @@ select r.RlsLevelTarget
   ,'   \Display_','\Src\MyFsWp\FSWebUI\Finders\ServerSideCode\Chinese\Display_'))) ModifiedFileChanged
 from resolution r
 join FileChanges f on f.TransmittalID = r.TransmittalId
-where r.RlsLevelTarget like '7.50E_%'
+where (r.RlsLevelTarget like '7.50E_%'
+or r.TransmittalId in (52434, 52431, 52441, 52435))
 and f.FileChanged > ''
 and not ((r.TransmittalId = 52577) and (f.FCIndex = 61))
 and not ((r.TransmittalId = 52577) and (f.FCIndex = 63))
