@@ -1,7 +1,7 @@
 @echo off
-SET TODIR=C:\Users\bmarty\AccuRev\FS2_Migrate\Src
+SET TODIR=C:\Users\bmarty\AccuRev\FS_Migrate\Src
 SET SSEXE="C:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe"
-SET SSDIR=C:\Users\bmarty\downloads\R75_o
+SET SSDIR=C:\Users\bmarty\downloads\R75
 SET R75SRC=$/R75/Src
 %SSEXE% get %R75SRC%/APSM/ap000035/APCR.cpp -V13 -GTU -GWR -W -GF- -GL"%TODIR%\APSM\ap000035"
 %SSEXE% get "%R75SRC%/Libsrc/scrlib/RDL_ROUT.cpp" -V52 -GTU -GWR -W -GF- -GL"%TODIR%\Libsrc\scrlib"
