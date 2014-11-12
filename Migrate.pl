@@ -143,7 +143,11 @@ CommitAll('Import latest FS 7.40 code after 7.40K release.');
 MakeStream(StmName('7.40_WorkComplete'), StmName('7.40'));
 # 7.50
 MakeStream(StmName('7.50'), $rootStream);
+print STDERR "Please make sure the AccuRev workspace is clean, the press Enter.\n";
+<STDIN>;
 ReparentWorkspace(StmName('Migrate'), StmName('7.50'));
+print STDERR "Please, again, make sure the AccuRev workspace is clean, the press Enter.\n";
+<STDIN>;
 $ENV{'SSDIR'}=$ssdb75;
 VSSWorkFold($ss75, $wsDir);
 RecursiveDelete();
@@ -164,6 +168,7 @@ sub VSSGet {
 	#{
 	#	die "Failed to retrieve $label";
 	#}
+	print STDERR "Proceeding with $label...\n";
 	system('del *.scc /S /Q /F');
 	if ($?)
 	{
