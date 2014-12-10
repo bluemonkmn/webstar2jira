@@ -47,11 +47,11 @@ while (my @userInfo = $sth->fetchrow_array())
 	
 	if ($userInfo[5] == 1)
 	{
-		$userRec = {name=>$userName,groups=>['jira-users'],active=>JSON::true};
-		if ($userInfo[3] eq 'Analyst' or $userInfo[3] eq 'Reviewer' or $userInfo[3] eq 'Admin')
-		{
-			push $userRec->{groups}, 'jira-developers';
-		}
+		$userRec = {name=>$userName,groups=>['jira-users', 'jira-developers'],active=>JSON::true};
+		#if ($userInfo[3] eq 'Analyst' or $userInfo[3] eq 'Reviewer' or $userInfo[3] eq 'Admin')
+		#{
+		#	push $userRec->{groups}, 'jira-developers';
+		#}
 	} else {
 		$userRec = {name=>"WebStar_$userName",active=>JSON::false};
 	}

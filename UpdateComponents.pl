@@ -6,7 +6,7 @@ use JSON;
 my $ua = LWP::UserAgent->new;
 $ua->timeout(10);
 $ua->env_proxy;
-my $rootURL = 'http://jiratst.lawson.com/rest';
+my $rootURL = 'http://jira.lawson.com/rest';
 my $authURL = "$rootURL/auth/1";
 my $apiURL = "$rootURL/api/2";
 my $project = 'FS';
