@@ -23,14 +23,9 @@ DECLARE @ReleaseList TABLE (
    Name varchar(10) NOT NULL,
    Sequence int NOT NULL
 )
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('7.30', 1)
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('7.40', 2)
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('7.50', 3)
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('8.0', 4)
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('BI', 5)
---INSERT INTO @ReleaseList(Name) VALUES('FSE')
 
--- Start with a list of all transmittals in the 7.30 release
+INSERT INTO @ReleaseList(Name, Sequence) VALUES('LEDO', 1)
+
 DECLARE release_cursor CURSOR FAST_FORWARD LOCAL FOR
 SELECT Name FROM @ReleaseList
 ORDER BY Sequence
@@ -112,45 +107,3 @@ BEGIN
 END
 CLOSE release_cursor
 DEALLOCATE release_cursor
-
--- Add all SDRs that are open in any FS release
-INSERT INTO StarMap..ReleaseIssues(SDRNum, ImportGroup, Branch, [Version])
-SELECT s.SDRNum, 'Open', rd.JIRABranch, rd.AffectsVersion
-FROM STAR..sdr s
-LEFT JOIN StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
-JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = s.Release and rd.ReleaseID = s.[Version]
-WHERE s.Status = 'O'
-AND s.Release IN ('7.00', '7.10', '7.20', '7.30', '7.40', '7.50', '8.0', 'BI')
-AND ri.ImportGroup IS NULL
-
--- Recursively propagate references to all related Transmittals in
--- included releases and all related SDRs in all releases.
-set @affected = -1
-WHILE @affected <> 0
-BEGIN
-   INSERT INTO StarMap..ReleaseIssues(SDRNum, ImportGroup, Branch, [Version])
-   SELECT s.SDRNum, 'Open', rd.JIRABranch, rd.AffectsVersion
-   FROM StarMap..ReleaseIssues ri
-   JOIN STAR..Resolution_SDRs rs ON ri.TransmittalId = rs.TransmittalID
-   JOIN STAR..sdr s on s.SDRNum = rs.SDR_Num
-   JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = s.Release and rd.ReleaseID = s.[Version]
-   LEFT JOIN StarMap..ReleaseIssues riDup ON riDup.SDRNum = s.SDRNum
-   WHERE riDup.ImportGroup IS NULL
-   GROUP BY s.SDRNum, rd.JIRABranch, rd.AffectsVersion
-
-   SET @affected = @@ROWCOUNT
-
-   INSERT INTO StarMap..ReleaseIssues(TransmittalId, ImportGroup, Branch, [Version])
-   SELECT r.TransmittalId, 'Open', rd.JIRABranch,
-   CASE WHEN r.WaitingOn IN ('Pull', 'Done') THEN rd.FixedVersion ELSE rd.JIRABranch END
-   FROM StarMap..ReleaseIssues ri
-   JOIN STAR..Resolution_SDRs rs ON ri.SDRNum = rs.SDR_Num
-   JOIN STAR..resolution r ON rs.TransmittalID = r.TransmittalId
-   AND r.ReleaseLev IN (SELECT Name FROM @ReleaseList)
-   JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = r.ReleaseLev and rd.ReleaseID = r.RlsLevelTarget
-   LEFT JOIN StarMap..ReleaseIssues riDup ON riDup.TransmittalId = r.TransmittalId
-   WHERE riDup.ImportGroup IS NULL
-   GROUP BY r.TransmittalId, r.WaitingOn, rd.JIRABranch, rd.FixedVersion
-
-   SET @affected = @affected + @@ROWCOUNT
-END

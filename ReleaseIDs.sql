@@ -28,6 +28,10 @@ update ReleaseIDs set LanguageLabel = 'Chinese'
 , AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 8) = '_Chinese'
 
+update ReleaseIDs set LanguageLabel = 'Chinese'
+, AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
+where RIGHT(ReleaseID, 3) = '_MC'
+
 update ReleaseIDs set LanguageLabel = 'Dutch'
 , AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 6) = '_Dutch'
@@ -107,6 +111,7 @@ where RIGHT(ReleaseID, 8) = '_Utility'
 update ReleaseIDs set IsReleased = 0 where ReleaseID in ('LEDO 5.10','INAP 7.50.4','Visibar 5.5D','8.0')
 
 update ReleaseIDs set AffectsVersion = '8.00' where ReleaseID = '8.0'
+update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 6, 20) where LEFT(AffectsVersion, 5) = 'LEDO '
 update ReleaseIDs set FixedVersion = AffectsVersion
 
 update ReleaseIDs set JIRABranch = REPLACE(REPLACE(ISNULL(AffectsVersion, ReleaseID), '.', '_'), ' ', '_')
@@ -114,6 +119,12 @@ update ReleaseIDs set JIRABranch = '7_30_DEV', FixedVersion = '7_30_DEV', Affect
 update ReleaseIDs set JIRABranch = '7_40_DEV', FixedVersion = '7_40_DEV', AffectsVersion = '7_40_DEV', IsReleased = 0 where AffectsVersion = '7.40L'
 update ReleaseIDs set JIRABranch = '7_50_DEV', FixedVersion = '7_50_DEV', AffectsVersion = '7_50_DEV', IsReleased = 0 where AffectsVersion = '7.50F'
 update ReleaseIDs set JIRABranch = '8_00_DEV', FixedVersion = '8_00_DEV', AffectsVersion = '8_00_DEV', IsReleased = 0 where AffectsVersion = '8.00'
+
+update ReleaseIDs set JIRABranch = '5_10_DEV', FixedVersion = '5_10_DEV', AffectsVersion = '5_10_DEV', IsReleased = 0 where AffectsVersion = '5.10'
+update ReleaseIDs set JIRABranch = '5_00' where AffectsVersion = '5.00'
+update ReleaseIDs set JIRABranch = '5_00' where AffectsVersion = '5.00.01'
+update ReleaseIDs set JIRABranch = '4_05' where AffectsVersion like '4.05%'
+
 update ReleaseIDs set JIRABranch = '7_50', HotfixLabel='BI1' where AffectsVersion = 'BI 1' and HotfixLabel is null
 update ReleaseIDs set JIRABranch = '7_50', LanguageLabel='BI1' where AffectsVersion = 'BI 1' and LanguageLabel is null and HotfixLabel != 'BI1'
 update ReleaseIDs set JIRABranch = '7_50C', HotfixLabel='BI2' where AffectsVersion = 'BI 2'
@@ -127,4 +138,4 @@ update ReleaseIDs set JIRABranch = '7_30', HotfixLabel='NotaFiscal' where Releas
 update ReleaseIDs set JIRABranch = '7_30_DEV' where AffectsVersion like '7.30%' and coalesce(HotfixLabel, LanguageLabel) is null
 update ReleaseIDs set JIRABranch = '7_40_DEV' where AffectsVersion like '7.40%' and coalesce(HotfixLabel, LanguageLabel) is null
 update ReleaseIDs set JIRABranch = '7_50_DEV' where AffectsVersion like '7.50%' and coalesce(HotfixLabel, LanguageLabel) is null
-update ReleaseIDs set FixedVersion = JIRABranch where coalesce(HotfixLabel, LanguageLabel) is not null
+update ReleaseIDs set FixedVersion = JIRABranch where coalesce(HotfixLabel, LanguageLabel) is not null and ReleaseLev <> 'LEDO'

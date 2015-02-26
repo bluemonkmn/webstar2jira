@@ -170,7 +170,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
 	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
-		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FS-SDR' . $hashref->{SDRNum}}
+		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FSLEDO-SDR' . $hashref->{SDRNum}}
 	];
 	if ($hashref->{ReportedPriority})
 	{
@@ -560,7 +560,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	}
 	
 	@resolution{customFieldValues} = [
-		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FS-TR' . $resolution{TransmittalId}},
+		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FSLEDO-TR' . $resolution{TransmittalId}},
 		{fieldName=>'Branch',value=>$resolution{Branch},fieldType=>'com.lawson.tools.jira.customfields:jira-integration-only-field'}
 	];
 	
@@ -851,7 +851,7 @@ if ($userCSVMode) {
 	}
 } else {
 	my %import = (users => [sort { $a->{name} cmp $b->{name} } values %usersUsed],
-		projects => [{name=>'Fourth Shift - FS', key=>'FS',
+		projects => [{name=>'Fourth Shift - LEDO', key=>'FSLEDO',
 		components=>[sort keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
 		issues=>[sort { $a->{externalId} cmp $b->{externalId} } (values %sdrLookup, values %resolutions)]}],
 		links=>\@links);
