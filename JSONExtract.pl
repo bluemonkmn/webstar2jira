@@ -139,6 +139,7 @@ select rs.SDR_Num, COUNT(*) TransCount,
  min(ls.LastSDR) MinLastSDR
 from STAR..Resolution_SDRs rs
 join STAR..Resolution rn on rn.TransmittalId = rs.TransmittalID
+join StarMap..ReleaseIssues rri on rri.TransmittalID = rs.TransmittalID
 left join (select max(rs2.SDR_Num) LastSDR, rs2.TransmittalID
 			from STAR..Resolution_SDRs rs2
 			join StarMap..ReleaseIssues lsri

@@ -120,10 +120,8 @@ update ReleaseIDs set JIRABranch = '7_40_DEV', FixedVersion = '7_40_DEV', Affect
 update ReleaseIDs set JIRABranch = '7_50_DEV', FixedVersion = '7_50_DEV', AffectsVersion = '7_50_DEV', IsReleased = 0 where AffectsVersion = '7.50F'
 update ReleaseIDs set JIRABranch = '8_00_DEV', FixedVersion = '8_00_DEV', AffectsVersion = '8_00_DEV', IsReleased = 0 where AffectsVersion = '8.00'
 
-update ReleaseIDs set JIRABranch = '5_10_DEV', FixedVersion = '5_10_DEV', AffectsVersion = '5_10_DEV', IsReleased = 0 where AffectsVersion = '5.10'
-update ReleaseIDs set JIRABranch = '5_00' where AffectsVersion = '5.00'
-update ReleaseIDs set JIRABranch = '5_00' where AffectsVersion = '5.00.01'
-update ReleaseIDs set JIRABranch = '4_05' where AffectsVersion like '4.05%'
+update ReleaseIDs set JIRABranch = 'LEDO_DEV' where ReleaseLev = 'LEDO'
+update ReleaseIDs set FixedVersion = 'LEDO_DEV', AffectsVersion = 'LEDO_DEV', IsReleased = 0 where AffectsVersion = '5.10'
 
 update ReleaseIDs set JIRABranch = '7_50', HotfixLabel='BI1' where AffectsVersion = 'BI 1' and HotfixLabel is null
 update ReleaseIDs set JIRABranch = '7_50', LanguageLabel='BI1' where AffectsVersion = 'BI 1' and LanguageLabel is null and HotfixLabel != 'BI1'
