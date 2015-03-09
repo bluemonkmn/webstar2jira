@@ -136,7 +136,7 @@ update ReleaseIDs set JIRABranch = '7_00' where ReleaseLev = '7.00'
 update ReleaseIDs set JIRABranch = '7_10' where ReleaseLev = '7.10'
 update ReleaseIDs set JIRABranch = '7_20' where ReleaseLev = '7.20'
 update ReleaseIDs set JIRABranch = '7_30', HotfixLabel='NotaFiscal' where ReleaseID = '7.3NF'
-update ReleaseIDs set JIRABranch = '7_30_DEV' where AffectsVersion like '7.30%' and coalesce(HotfixLabel, LanguageLabel) is null
-update ReleaseIDs set JIRABranch = '7_40_DEV' where AffectsVersion like '7.40%' and coalesce(HotfixLabel, LanguageLabel) is null
-update ReleaseIDs set JIRABranch = '7_50_DEV' where AffectsVersion like '7.50%' and coalesce(HotfixLabel, LanguageLabel) is null
-update ReleaseIDs set FixedVersion = JIRABranch where coalesce(HotfixLabel, LanguageLabel) is not null and ReleaseLev <> 'LEDO'
+update ReleaseIDs set JIRABranch = '7_30_DEV' where ReleaseLev <> 'INAP' and AffectsVersion like '7.30%' and coalesce(HotfixLabel, LanguageLabel) is null
+update ReleaseIDs set JIRABranch = '7_40_DEV' where ReleaseLev <> 'INAP' and AffectsVersion like '7.40%' and coalesce(HotfixLabel, LanguageLabel) is null
+update ReleaseIDs set JIRABranch = '7_50_DEV' where ReleaseLev <> 'INAP' and AffectsVersion like '7.50%' and coalesce(HotfixLabel, LanguageLabel) is null
+update ReleaseIDs set FixedVersion = JIRABranch where coalesce(HotfixLabel, LanguageLabel) is not null and ReleaseLev not in ('LEDO', 'INAP')
