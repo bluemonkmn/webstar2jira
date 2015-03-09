@@ -17,7 +17,7 @@ $ENV{'SSDIR'}=$ssdb;
 MakeStream($rootStream, $depot);
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
 chdir $wsDir or die $!;
-VSSWorkFold($ss75, $wsDir);
+VSSWorkFold($ssroot, $wsDir);
 RecursiveDelete();
 VSSGetByDate($ssroot, '9-23-2008');
 CommitAll('Import initial LEDO 4.05.06 source tree state as of 9-23-2008.');

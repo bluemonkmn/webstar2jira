@@ -111,7 +111,7 @@ where RIGHT(ReleaseID, 8) = '_Utility'
 update ReleaseIDs set IsReleased = 0 where ReleaseID in ('LEDO 5.10','INAP 7.50.4','Visibar 5.5D','8.0')
 
 update ReleaseIDs set AffectsVersion = '8.00' where ReleaseID = '8.0'
-update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 6, 20) where LEFT(AffectsVersion, 5) = 'LEDO '
+update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 6, 20) where LEFT(AffectsVersion, 5) in ('LEDO ', 'INAP ')
 update ReleaseIDs set FixedVersion = AffectsVersion
 
 update ReleaseIDs set JIRABranch = REPLACE(REPLACE(ISNULL(AffectsVersion, ReleaseID), '.', '_'), ' ', '_')
@@ -122,6 +122,9 @@ update ReleaseIDs set JIRABranch = '8_00_DEV', FixedVersion = '8_00_DEV', Affect
 
 update ReleaseIDs set JIRABranch = 'LEDO_DEV' where ReleaseLev = 'LEDO'
 update ReleaseIDs set FixedVersion = 'LEDO_DEV', AffectsVersion = 'LEDO_DEV', IsReleased = 0 where AffectsVersion = '5.10'
+
+update ReleaseIDs set JIRABranch = 'INAP_DEV' where ReleaseLev = 'INAP'
+update ReleaseIDs set FixedVersion = 'INAP_DEV', AffectsVersion = 'INAP_DEV', IsReleased = 0 where AffectsVersion = '7.50.4'
 
 update ReleaseIDs set JIRABranch = '7_50', HotfixLabel='BI1' where AffectsVersion = 'BI 1' and HotfixLabel is null
 update ReleaseIDs set JIRABranch = '7_50', LanguageLabel='BI1' where AffectsVersion = 'BI 1' and LanguageLabel is null and HotfixLabel != 'BI1'
