@@ -70,7 +70,7 @@ sub getTransNum {
 }
 
 sub MakeSnapshot {
-	my $newStream = "${depot}_${prepend}" . $_[0];
+	my $newStream = "${depot}_${prepend}_" . $_[0];
 	my $basis = $_[1];
 	my $tranNum = $_[2];
 	die "Failed to specify snapshot timestamp." if (not $tranNum);
