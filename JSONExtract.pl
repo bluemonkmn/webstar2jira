@@ -182,7 +182,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	{
 		$hashref->{assignee} = GetUser($hashref->{assignee});
 	} else {
-		$hashref->{assignee} = GetUser('yatess');
+		$hashref->{assignee} = GetUser('moe');
 	}
 	if ($hashref->{reporter})
 	{
