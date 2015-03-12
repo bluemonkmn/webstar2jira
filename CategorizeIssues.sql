@@ -24,7 +24,7 @@ DECLARE @ReleaseList TABLE (
    Sequence int NOT NULL
 )
 
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('LEDO', 1)
+INSERT INTO @ReleaseList(Name, Sequence) VALUES('INAP', 1)
 
 DECLARE release_cursor CURSOR FAST_FORWARD LOCAL FOR
 SELECT Name FROM @ReleaseList

@@ -19,31 +19,34 @@ MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
 chdir $wsDir or die $!;
 VSSWorkFold($ssroot, $wsDir);
 RecursiveDelete();
-VSSGetByDate($ssroot, '5-30-2003');
-CommitAll('Import initial INAP source tree state as of 5-30-2003.');
+VSSGet($ssroot, '2-20-2003');
+CommitAll('Import initial INAP source tree state as of 2-20-2003.');
 MakeStream(StmName('WorkComplete'), $rootStream);
 
 sub StmName {
 	return "${depot}_${prepend}_" . $_[0];
 }
 
-sub VSSGetByDate {
+sub VSSGet {
 	my $ssPath = $_[0];
-	my $date = $_[1];
-	system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vd$date");
-	if ($?)
-	{
-		die "Failed to retrieve ss code by date for $date.";
-	}
+	my $label = $_[1];
+	print STDERR "From $ssPath retrieve label $label, then press enter to continue.\n";
+	<STDIN>;
+	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vl$label");
+	#if ($?)
+	#{
+	#	die "Failed to retrieve $label";
+	#}
+	print STDERR "Proceeding with $label...\n";
 	system('del *.scc /S /Q /F');
 	if ($?)
 	{
-		die "Failed to clean up *.scc files after retrieving code for date $date.";
+		die "Failed to clean up *.scc files after retrieving code for label $label.";
 	}
 	system('del *.scc /S /Q /F /AH');
 	if ($?)
 	{
-		die "Failed to clean up *.scc files after retrieving code for date $date.";
+		die "Failed to clean up *.scc files after retrieving code for label $label.";
 	}
 }
 
