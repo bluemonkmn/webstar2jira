@@ -4,181 +4,54 @@ use File::Path;
 my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $sscmd = 'c:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe';
 my $tmp = $ENV{'TMP'};
-my $depot = 'FS';
-my $prepend = ''; # prepended to created stream names in case multiple test imports need to be done.
+my $depot = 'FSX';
+my $prepend = 'Visi'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
-my $ssdb73 = 'C:\Users\bmarty\Downloads\R73';
-my $ssdb74 = 'C:\Users\bmarty\Downloads\R74';
-my $ssdb75 = 'C:\Users\bmarty\Downloads\R75';
+my $ssdb = 'C:\Users\bmarty\Downloads\Visi';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $ss73pin = '$/R73pin';
-my $ss74pin = '$/R74pin';
-my $ss73 = '$/R73';
-my $ss74 = '$/R74';
-my $ss75 = '$/R75';
+my $ssVisiB = '$/VisiBar';
+my $ssVisiC = '$/VisiBar55';
 
 LogMsg('Starting migration at ' . localtime());
 
-# 7.30
-$ENV{'SSDIR'}=$ssdb73;
+# 5.5B
+$ENV{'SSDIR'}=$ssdb;
+MakeStream($rootStream, $depot);
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
-VSSWorkFold($ss73pin, $wsDir);
+VSSGetLatest($ssVisiB . '/Help/VisiBarHelp', $wsDir . '\Help');
+VSSGetLatest($ssVisiB . '/Installs/5.5', $wsDir . '\Installs');
+VSSGetLatest($ssVisiB . '/PocketPC/2.0/Code', $wsDir . '\PocketPC');
+VSSGetLatest($ssVisiB . '/Utilities', $wsDir . '\Utilities');
+VSSGetLatest($ssVisiB . '/IntermecCK30', $wsDir . '\Utilities\IntermecCK30');
+VSSGetLatest($ssVisiB . '/FSELibrary/5.5/Code_FSE90', $wsDir . '\Utilities\FSELibrary');
+VSSGetLatest($ssVisiB . '/VBConvert 2.0', $wsDir . '\Utilities\VBConvert');
+VSSGetLatest($ssVisiB . '/VBCUtils', $wsDir . '\Utilities\VBCUtils');
+VSSGetLatest($ssVisiB . '/VBSQL/5.1/Code', $wsDir . '\Utilities\VBSQL');
+VSSGetLatest($ssVisiB . '/VBComm/5.1/Code', $wsDir . '\VBComm');
+VSSGetLatest($ssVisiB . '/VBDesigner/5.5/Code', $wsDir . '\VBDesigner');
+VSSGetLatest($ssVisiB . '/VBExpeditor/5.5/Code', $wsDir . '\VBExpeditor');
+VSSGetLatest($ssVisiB . '/VBRemote/5.5/Code', $wsDir . '\VBRemote');
+VSSGetLatest($ssVisiB . '/VBServer/5.5/Code', $wsDir . '\VBServer');
 chdir $wsDir or die $!;
-VSSGet($ss73pin,'7.30');
-CommitAll('Import FS Label 7.30');
-MakeSnapshot(StmName('7.30_GA'), $rootStream);
-MakeStream(StmName('7.30'), StmName('7.30_GA'));
-ReparentWorkspace(StmName('Migrate'), StmName('7.30'));
+CommitAll('Import VisiBar 5.5B initial release code.');
+MakeSnapshot(StmName('5.5B_SP'), $rootStream);
+# 5.5B_FSE
+VSSGetLatest($ssVisiB . '/VBExpeditor/5.5/Code_FSE90', $wsDir . '\VBExpeditor');
+VSSGetLatest($ssVisiB . '/VBServer/5.5/Code_FSE90', $wsDir . '\VBServer');
+chdir $wsDir or die $!;
+CommitAll('Import VisiBar 5.5B FSE re-release code.');
+MakeSnapshot(StmName('5.5B_FSE_SP'), $rootStream);
 RecursiveDelete();
-VSSGet($ss73pin,'7.30A');
-CommitAll('Import FS Label 7.30A');
-MakeSnapshot(StmName('7.30A_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30B');
-CommitAll('Import FS Label 7.30B');
-MakeSnapshot(StmName('7.30B_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30C');
-CommitAll('Import FS Label 7.30C');
-MakeSnapshot(StmName('7.30C_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30D');
-CommitAll('Import FS Label 7.30D');
-MakeSnapshot(StmName('7.30D_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30E');
-CommitAll('Import FS Label 7.30E');
-MakeSnapshot(StmName('7.30E_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30F');
-CommitAll('Import FS Label 7.30F');
-MakeSnapshot(StmName('7.30F_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30G');
-CommitAll('Import FS Label 7.30G');
-MakeSnapshot(StmName('7.30G_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30H');
-CommitAll('Import FS Label 7.30H');
-MakeSnapshot(StmName('7.30H_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30I');
-CommitAll('Import FS Label 7.30I');
-MakeSnapshot(StmName('7.30I_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30J');
-CommitAll('Import FS Label 7.30J');
-MakeSnapshot(StmName('7.30J_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, '7.30K');
-CommitAll('Import FS Label 7.30K');
-MakeSnapshot(StmName('7.30K_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin, 'R7.30L');
-CommitAll('Import FS Label R7.30L');
-MakeSnapshot(StmName('7.30L_SP'), StmName('7.30'));
-RecursiveDelete();
-VSSWorkFold($ss73, $wsDir);
-VSSGetLatest($ss73);
-CommitAll('Import latest FS 7.30 code after 7.30L release.');
-MakeStream(StmName('7.30_WorkComplete'), StmName('7.30'));
-# 7.40
-ReparentWorkspace(StmName('Migrate'), $rootStream);
-$ENV{'SSDIR'}=$ssdb74;
-VSSWorkFold($ss74pin, $wsDir);
-RecursiveDelete();
-VSSGet($ss74pin, '7.40');
-CommitAll('Import FS Label 7.40');
-MakeSnapshot(StmName('7.40_GA'), $rootStream);
-MakeStream(StmName('7.40'), StmName('7.40_GA'));
-ReparentWorkspace(StmName('Migrate'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40A');
-CommitAll('Import FS Label 7.40A');
-MakeSnapshot(StmName('7.40A_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40B');
-CommitAll('Import FS Label 7.40B');
-MakeSnapshot(StmName('7.40B_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40C');
-CommitAll('Import FS Label 7.40C');
-MakeSnapshot(StmName('7.40C_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40D');
-CommitAll('Import FS Label 7.40D');
-MakeSnapshot(StmName('7.40D_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40E');
-CommitAll('Import FS Label 7.40E');
-MakeSnapshot(StmName('7.40E_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40F');
-CommitAll('Import FS Label 7.40F');
-MakeSnapshot(StmName('7.40F_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40G');
-CommitAll('Import FS Label 7.40G');
-MakeSnapshot(StmName('7.40G_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40H');
-CommitAll('Import FS Label 7.40H');
-MakeSnapshot(StmName('7.40H_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40I');
-CommitAll('Import FS Label 7.40I');
-MakeSnapshot(StmName('7.40I_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40J');
-CommitAll('Import FS Label 7.40J');
-MakeSnapshot(StmName('7.40J_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSGet($ss74pin, '7.40K');
-CommitAll('Import FS Label 7.40K');
-MakeSnapshot(StmName('7.40K_SP'), StmName('7.40'));
-RecursiveDelete();
-VSSWorkFold($ss74, $wsDir);
-VSSGetLatest($ss74);
-CommitAll('Import latest FS 7.40 code after 7.40K release.');
-MakeStream(StmName('7.40_WorkComplete'), StmName('7.40'));
-# 7.50
-MakeStream(StmName('7.50'), $rootStream);
+#5.5C
 print STDERR "Please make sure the AccuRev workspace is clean, the press Enter.\n";
 <STDIN>;
-ReparentWorkspace(StmName('Migrate'), StmName('7.50'));
-print STDERR "Please, again, make sure the AccuRev workspace is clean, the press Enter.\n";
-<STDIN>;
-$ENV{'SSDIR'}=$ssdb75;
-VSSWorkFold($ss75, $wsDir);
+VSSWorkFold($ssVisiC, $wsDir);
 RecursiveDelete();
-VSSGetByDate($ss75, '7-23-2006');
-CommitAll('Import initial FS 7.50 source tree state as of 7-23-2006.');
+VSSGetByDate($ss75, '12-16-2011');
+CommitAll('Import initial state of VisiBar 5.5C source tree when it still looked like 5.5B on 12-16-2011.');
 
 sub StmName {
-	return "${depot}_${prepend}" . $_[0];
-}
-
-sub VSSGet {
-	my $ssPath = $_[0];
-	my $label = $_[1];
-	print STDERR "From $ssPath retrieve label $label, then press enter to continue.\n";
-	<STDIN>;
-	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vl$label");
-	#if ($?)
-	#{
-	#	die "Failed to retrieve $label";
-	#}
-	print STDERR "Proceeding with $label...\n";
-	system('del *.scc /S /Q /F');
-	if ($?)
-	{
-		die "Failed to clean up *.scc files after retrieving code for label $label.";
-	}
-	system('del *.scc /S /Q /F /AH');
-	if ($?)
-	{
-		die "Failed to clean up *.scc files after retrieving code for label $label.";
-	}
+	return "${depot}_${prepend}_" . $_[0];
 }
 
 sub VSSGetByDate {
@@ -203,13 +76,18 @@ sub VSSGetByDate {
 
 sub VSSGetLatest {
 	my $ssPath = $_[0];
-	print STDERR "From $ssPath retrieve the latest code, then press enter to continue.\n";
-	<STDIN>;
-	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W");
-	#if ($?)
-	#{
-	#	die "Failed to retrieve latest code.";
-	#}
+   my $localPath = $_[1];
+   
+   VSSWorkFold($ssPath, $localPath);
+   chdir $localPath or die $!;
+   RecursiveDelete();
+	#print STDERR "From $ssPath retrieve the latest code, then press enter to continue.\n";
+	#<STDIN>;
+	system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W");
+	if ($?)
+	{
+		die "Failed to retrieve latest code.";
+	}
 	system('del *.scc /S /Q /F');
 	if ($?)
 	{
@@ -225,6 +103,7 @@ sub VSSGetLatest {
 sub VSSWorkFold {
 	my $ssPath = $_[0];
 	my $localPath = $_[1];
+   make_path($localPath);
 	system("\"$sscmd\" Workfold $ssPath \"$localPath\"");
 	if ($?)
 	{

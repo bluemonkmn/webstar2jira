@@ -76,6 +76,10 @@ update ReleaseIDs set HotfixLabel = 'HotFix'
 , AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 7) in ('_HotFix', '_Hotfix')
 
+update ReleaseIDs set HotfixLabel = 'HotFix'
+, AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
+where RIGHT(ReleaseID, 3) = '_HF'
+
 update ReleaseIDs set LanguageLabel = 'Chinese', HotfixLabel = 'HotFix'
 , AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 10) = '_ChineseHF'
@@ -108,10 +112,11 @@ update ReleaseIDs set HotfixLabel = 'Utility'
 , AffectsVersion = left(ReleaseID, CHARINDEX('_', ReleaseID)-1)
 where RIGHT(ReleaseID, 8) = '_Utility'
 
-update ReleaseIDs set IsReleased = 0 where ReleaseID in ('LEDO 5.10','INAP 7.50.4','Visibar 5.5D','8.0')
+update ReleaseIDs set IsReleased = 0 where ReleaseID in ('LEDO 5.10','INAP 7.50.4','Visibar 5.5E','8.0')
 
 update ReleaseIDs set AffectsVersion = '8.00' where ReleaseID = '8.0'
 update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 6, 20) where LEFT(AffectsVersion, 5) in ('LEDO ', 'INAP ')
+update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 9, 20) where LEFT(AffectsVersion, 8) = ' VisiBar '
 update ReleaseIDs set FixedVersion = AffectsVersion
 
 update ReleaseIDs set JIRABranch = REPLACE(REPLACE(ISNULL(AffectsVersion, ReleaseID), '.', '_'), ' ', '_')
@@ -125,6 +130,9 @@ update ReleaseIDs set FixedVersion = 'LEDO_DEV', AffectsVersion = 'LEDO_DEV', Is
 
 update ReleaseIDs set JIRABranch = 'INAP_DEV' where ReleaseLev = 'INAP'
 update ReleaseIDs set FixedVersion = 'INAP_DEV', AffectsVersion = 'INAP_DEV', IsReleased = 0 where AffectsVersion = '7.50.4'
+
+update ReleaseIDs set JIRABranch = 'VB_DEV' where ReleaseLev = 'VisiBar'
+update ReleaseIDs set FixedVersion = 'VB_DEV', AffectsVersion = 'VB_DEV', IsReleased = 0 where AffectsVersion = '5.5E'
 
 update ReleaseIDs set JIRABranch = '7_50', HotfixLabel='BI1' where AffectsVersion = 'BI 1' and HotfixLabel is null
 update ReleaseIDs set JIRABranch = '7_50', LanguageLabel='BI1' where AffectsVersion = 'BI 1' and LanguageLabel is null and HotfixLabel != 'BI1'
