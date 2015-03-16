@@ -1,6 +1,6 @@
 use IPC::Open3;
 use Data::Printer;
-use File::Path;
+use File::Path qw(make_path rmtree);
 my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $sscmd = 'c:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe';
 my $tmp = $ENV{'TMP'};
@@ -9,45 +9,17 @@ my $prepend = 'Visi'; # prepended to created stream names in case multiple test 
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
 my $ssdb = 'C:\Users\bmarty\Downloads\Visi';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $ssVisiB = '$/VisiBar';
 my $ssVisiC = '$/VisiBar55';
 
 LogMsg('Starting migration at ' . localtime());
 
-# 5.5B
 $ENV{'SSDIR'}=$ssdb;
 MakeStream($rootStream, $depot);
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
-VSSGetLatest($ssVisiB . '/Help/VisiBarHelp', $wsDir . '\Help');
-VSSGetLatest($ssVisiB . '/Installs/5.5', $wsDir . '\Installs');
-VSSGetLatest($ssVisiB . '/PocketPC/2.0/Code', $wsDir . '\PocketPC');
-VSSGetLatest($ssVisiB . '/Utilities', $wsDir . '\Utilities');
-VSSGetLatest($ssVisiB . '/IntermecCK30', $wsDir . '\Utilities\IntermecCK30');
-VSSGetLatest($ssVisiB . '/FSELibrary/5.5/Code_FSE90', $wsDir . '\Utilities\FSELibrary');
-VSSGetLatest($ssVisiB . '/VBConvert 2.0', $wsDir . '\Utilities\VBConvert');
-VSSGetLatest($ssVisiB . '/VBCUtils', $wsDir . '\Utilities\VBCUtils');
-VSSGetLatest($ssVisiB . '/VBSQL/5.1/Code', $wsDir . '\Utilities\VBSQL');
-VSSGetLatest($ssVisiB . '/VBComm/5.1/Code', $wsDir . '\VBComm');
-VSSGetLatest($ssVisiB . '/VBDesigner/5.5/Code', $wsDir . '\VBDesigner');
-VSSGetLatest($ssVisiB . '/VBExpeditor/5.5/Code', $wsDir . '\VBExpeditor');
-VSSGetLatest($ssVisiB . '/VBRemote/5.5/Code', $wsDir . '\VBRemote');
-VSSGetLatest($ssVisiB . '/VBServer/5.5/Code', $wsDir . '\VBServer');
 chdir $wsDir or die $!;
-CommitAll('Import VisiBar 5.5B initial release code.');
-MakeSnapshot(StmName('5.5B_SP'), $rootStream);
-# 5.5B_FSE
-VSSGetLatest($ssVisiB . '/VBExpeditor/5.5/Code_FSE90', $wsDir . '\VBExpeditor');
-VSSGetLatest($ssVisiB . '/VBServer/5.5/Code_FSE90', $wsDir . '\VBServer');
-chdir $wsDir or die $!;
-CommitAll('Import VisiBar 5.5B FSE re-release code.');
-MakeSnapshot(StmName('5.5B_FSE_SP'), $rootStream);
-RecursiveDelete();
-#5.5C
-print STDERR "Please make sure the AccuRev workspace is clean, the press Enter.\n";
-<STDIN>;
 VSSWorkFold($ssVisiC, $wsDir);
 RecursiveDelete();
-VSSGetByDate($ss75, '12-16-2011');
+VSSGetByDate($ssVisiC, '12-16-2011');
 CommitAll('Import initial state of VisiBar 5.5C source tree when it still looked like 5.5B on 12-16-2011.');
 
 sub StmName {
@@ -104,7 +76,7 @@ sub VSSWorkFold {
 	my $ssPath = $_[0];
 	my $localPath = $_[1];
    make_path($localPath);
-	system("\"$sscmd\" Workfold $ssPath \"$localPath\"");
+	system("\"$sscmd\" Workfold \"$ssPath\" \"$localPath\"");
 	if ($?)
 	{
 		die "Failed to retrieve $label";
