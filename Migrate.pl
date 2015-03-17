@@ -5,9 +5,9 @@ my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $sscmd = 'c:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe';
 my $tmp = $ENV{'TMP'};
 my $depot = 'FSX';
-my $prepend = 'Visi'; # prepended to created stream names in case multiple test imports need to be done.
+my $prepend = 'VisiBar'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
-my $ssdb = 'C:\Users\bmarty\Downloads\Visi';
+my $ssdb = 'C:\Users\bmarty\Downloads\VisiBar';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
 my $ssVisiC = '$/VisiBar55';
 
