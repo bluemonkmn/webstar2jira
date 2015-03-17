@@ -5,11 +5,11 @@ my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $sscmd = 'c:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe';
 my $tmp = $ENV{'TMP'};
 my $depot = 'FSX';
-my $prepend = 'Visi'; # prepended to created stream names in case multiple test imports need to be done.
+my $prepend = 'ETK'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
-my $ssdb = 'C:\Users\bmarty\Downloads\Visi';
+my $ssdb = 'C:\Users\bmarty\Downloads\E-Commerce';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $ssVisiC = '$/VisiBar55';
+my $ssETK = '$/SBETK2.0';
 
 LogMsg('Starting migration at ' . localtime());
 
@@ -17,10 +17,10 @@ $ENV{'SSDIR'}=$ssdb;
 MakeStream($rootStream, $depot);
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
 chdir $wsDir or die $!;
-VSSWorkFold($ssVisiC, $wsDir);
+VSSWorkFold($ssETK, $wsDir);
 RecursiveDelete();
-VSSGetByDate($ssVisiC, '12-16-2011');
-CommitAll('Import initial state of VisiBar 5.5C source tree when it still looked like 5.5B on 12-16-2011.');
+VSSGetByDate($ssETK, '12-03-2004');
+CommitAll('Import initial state of E-Commerce 2.0 source tree as of 12-03-2004.');
 
 sub StmName {
 	return "${depot}_${prepend}_" . $_[0];
