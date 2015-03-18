@@ -85,7 +85,7 @@ INSERT INTO @ReleaseList(Name, Sequence) VALUES('VisiBar 5.5E', 4)
       FROM StarMap..ReleaseIssues ri
       JOIN STAR..Resolution_SDRs rs ON ri.SDRNum = rs.SDR_Num
       JOIN STAR..resolution r ON rs.TransmittalID = r.TransmittalId
-      AND r.ReleaseLev = 'VisiBar'
+      AND r.ReleaseLev = 'VisiBar' AND RIGHT(r.RlsLevelTarget,3) != '_HF'
       JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = r.ReleaseLev and rd.ReleaseID = r.RlsLevelTarget
       LEFT JOIN StarMap..ReleaseIssues riDup ON riDup.TransmittalId = r.TransmittalId
       WHERE riDup.ImportGroup IS NULL
