@@ -116,7 +116,7 @@ update ReleaseIDs set IsReleased = 0 where ReleaseID in ('LEDO 5.10','INAP 7.50.
 
 update ReleaseIDs set AffectsVersion = '8.00' where ReleaseID = '8.0'
 update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 6, 20) where LEFT(AffectsVersion, 5) in ('LEDO ', 'INAP ')
-update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 9, 20) where LEFT(AffectsVersion, 8) = ' VisiBar '
+update ReleaseIDs set AffectsVersion = SUBSTRING(AffectsVersion, 9, 20) where LEFT(AffectsVersion, 8) = 'Visibar '
 update ReleaseIDs set FixedVersion = AffectsVersion
 
 update ReleaseIDs set JIRABranch = REPLACE(REPLACE(ISNULL(AffectsVersion, ReleaseID), '.', '_'), ' ', '_')
