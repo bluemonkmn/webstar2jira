@@ -7,101 +7,30 @@ my $tmp = $ENV{'TMP'};
 my $depot = 'FSDS';
 my $prepend = 'Test1'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
-my $ssdb = 'C:\Users\bmarty\Downloads\DemandStream';
+my $ssdb = 'C:\Users\bmarty\Downloads\R73';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $sspin = '$/R73pin';
-my $ss74pin = '$/R74pin';
-my $ss73 = '$/R73';
-my $ss74 = '$/R74';
-my $ss75 = '$/R75';
+my $ss21Pin = '$/r2.1PIN';
 
 LogMsg('Starting migration at ' . localtime());
 
-# 7.30
+# 2.1
 $ENV{'SSDIR'}=$ssdb;
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
-VSSWorkFold($ss73pin, $wsDir);
+VSSWorkFold($ss21Pin, $wsDir);
 chdir $wsDir or die $!;
-VSSGet($ss73pin,'7.30');
-CommitAll('Import FS Label 7.30');
-MakeSnapshot(StmName('7.30_GA'), $rootStream);
-MakeStream(StmName('7.30'), StmName('7.30_GA'));
-ReparentWorkspace(StmName('Migrate'), StmName('7.30'));
-RecursiveDelete();
-VSSGet($ss73pin,'7.30A');
-RecursiveDelete();
-VSSWorkFold($ss73, $wsDir);
-VSSGetLatest($ss73);
-CommitAll('Import latest FS 7.30 code after 7.30L release.');
-MakeStream(StmName('7.30_WorkComplete'), StmName('7.30'));
-# 7.50
-MakeStream(StmName('7.50'), $rootStream);
-print STDERR "Please make sure the AccuRev workspace is clean, the press Enter.\n";
-<STDIN>;
-ReparentWorkspace(StmName('Migrate'), StmName('7.50'));
-print STDERR "Please, again, make sure the AccuRev workspace is clean, the press Enter.\n";
-<STDIN>;
-VSSWorkFold($ss75, $wsDir);
-RecursiveDelete();
-VSSGetByDate($ss75, '7-23-2006');
-CommitAll('Import initial FS 7.50 source tree state as of 7-23-2006.');
+VSSGetLatest($ss21Pin);
+CommitAll('Import Demandstream 2.1 Gold release from r2.1PIN tree.');
 
 sub StmName {
 	return "${depot}_${prepend}" . $_[0];
 }
 
-sub VSSGet {
-	my $ssPath = $_[0];
-	my $label = $_[1];
-	print STDERR "From $ssPath retrieve label $label, then press enter to continue.\n";
-	<STDIN>;
-	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vl$label");
-	#if ($?)
-	#{
-	#	die "Failed to retrieve $label";
-	#}
-	print STDERR "Proceeding with $label...\n";
-	system('del *.scc /S /Q /F');
-	if ($?)
-	{
-		die "Failed to clean up *.scc files after retrieving code for label $label.";
-	}
-	system('del *.scc /S /Q /F /AH');
-	if ($?)
-	{
-		die "Failed to clean up *.scc files after retrieving code for label $label.";
-	}
-}
-
-sub VSSGetByDate {
-	my $ssPath = $_[0];
-	my $date = $_[1];
-	system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vd$date");
-	if ($?)
-	{
-		die "Failed to retrieve ss code by date for $date.";
-	}
-	system('del *.scc /S /Q /F');
-	if ($?)
-	{
-		die "Failed to clean up *.scc files after retrieving code for date $date.";
-	}
-	system('del *.scc /S /Q /F /AH');
-	if ($?)
-	{
-		die "Failed to clean up *.scc files after retrieving code for date $date.";
-	}
-}
-
 sub VSSGetLatest {
-	my $ssPath = $_[0];
-	print STDERR "From $ssPath retrieve the latest code, then press enter to continue.\n";
-	<STDIN>;
-	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W");
-	#if ($?)
-	#{
-	#	die "Failed to retrieve latest code.";
-	#}
+	system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W");
+	if ($?)
+	{
+		die "Failed to retrieve latest code.";
+	}
 	system('del *.scc /S /Q /F');
 	if ($?)
 	{
