@@ -53,7 +53,7 @@ INSERT INTO @ReleaseList(Name, Sequence) VALUES('VisiBar 5.5E', 4)
       GROUP BY rs.SDR_Num) tc ON s.SDRNum = tc.SDR_Num
    JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = s.Release and rd.ReleaseID = s.[Version]
    LEFT JOIN StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
-   WHERE ISNULL(tc.TransmittalCount, 0) = 0 AND s.Release IN (SELECT Name FROM @ReleaseList)
+   WHERE ISNULL(tc.TransmittalCount, 0) = 0 AND s.[Version] IN (SELECT Name FROM @ReleaseList)
    AND ri.ImportGroup IS NULL
    AND s.Version IN (SELECT Name FROM @ReleaseList)
 
