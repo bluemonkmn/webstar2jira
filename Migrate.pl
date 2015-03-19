@@ -9,74 +9,52 @@ my $prepend = 'DMS'; # prepended to created stream names in case multiple test i
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
 my $ssdb = 'C:\Users\bmarty\Downloads\DMS_VSS';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $ssDMSOld = '$/DMS';
-my $ssDMS2 = '$/DMS_FS75E';
+my $ssDMS1 = '$/BSG_PROJECTS/DMS';
+my $ssDMS2 = '$/BSG_PROJECTS/DMS_FS75E';
 
 LogMsg('Starting migration at ' . localtime());
 
 $ENV{'SSDIR'}=$ssdb;
 MakeStream($rootStream, $depot);
-# DMS Old
-MakeStream(StmName("Old"), $rootStream);
-MakeWorkspace(StmName('Migrate'), StmName("Old"), $wsDir);
+# DMS 1
+MakeStream(StmName("1"), $rootStream);
+MakeWorkspace(StmName('Migrate'), StmName("1"), $wsDir);
 chdir $wsDir or die $!;
-VSSWorkFold($ssDMSOld, $wsDir);
+VSSWorkFold($ssDMS1, $wsDir);
 RecursiveDelete();
-VSSGetByDate($ssDMSOld, '8/15/2013;8:22p');
-CommitAll('Import DMS 3.0.1 code as of 8/15/2013 8:22 pm');
-MakeSnapshot(StmName("3.0.1_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '9/11/2013;7:22p');
-CommitAll('Import DMS 3.0.2 code as of 9/11/2013 7:22 pm');
-MakeSnapshot(StmName("3.0.2_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '9/12/2013;7:51p');
-CommitAll('Import DMS 3.0.3 code as of 9/12/2013 7:51 pm');
-MakeSnapshot(StmName("3.0.3_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '9/13/2013;3:54a');
-CommitAll('Import DMS 3.0.4 code as of 9/13/2013 3:54 am');
-MakeSnapshot(StmName("3.0.4_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '10/30/2013;8:19p');
-CommitAll('Import DMS 3.0.5 code as of 10/30/2013 8:19 pm');
-MakeSnapshot(StmName("3.0.5_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '11/07/2013;6:58p');
-CommitAll('Import DMS 3.0.6 code as of 11/07/2013 6:58 pm');
-MakeSnapshot(StmName("3.0.6_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '11/17/2013;7:43p');
-CommitAll('Import DMS 3.0.7 code as of 11/17/2013 7:43 pm');
-MakeSnapshot(StmName("3.0.7_SP"), StmName("Old"));
-RecursiveDelete();
-VSSGetByDate($ssDMSOld, '6/30/2014;11:18p');
-CommitAll('Import DMS 3.0.8 code as of 6/30/2014 11:18 pm');
-MakeSnapshot(StmName("3.0.8_SP"), StmName("Old"));
+VSSManualGet($ssDMS1, '7/1/2014 1:45 am');
+CommitAll('Import DMS 3.0.8 code as 1.3.8 as of 7/1/2014 1:45 am');
+MakeSnapshot(StmName("1.3.8_SP"), StmName("1"));
 
 # DMS 2
-MakeStream(StmName("2"), StmName("Old"));
-print STDERR "Make sure $wsDir is clean, then press enter.\n";
+MakeStream(StmName("2"), StmName("1"));
+print STDERR "Make sure $wsDir is clean in AccuRev, then press enter.\n";
 <STDIN>;
 ReparentWorkspace(StmName('Migrate'), StmName("2"));
 chdir $wsDir or die $!;
 VSSWorkFold($ssDMS2, $wsDir);
 RecursiveDelete();
-VSSGetByDate($ssDMS2 '6/30/2014;11:18p');
-CommitAll('Import DMS 2.0 code as of 6/30/2014 11:18 pm');
+VSSManualGet($ssDMS1, 'DMS 2 from 2014-07-01 at 1:49 am');
+print STDERR "Run the automated migration now. Press enter when it is complete.\n";
+<STDIN>;
+
+# DMS 1 remainder
+print STDERR "Verify that the workspace is clean. Press enter to proceed.\n";
+<STDIN>;
+ReparentWorkspace(StmName('Migrate'), StmName("1"));
+chdir $wsDir or die $!;
+VSSGetLatest($ssDMS1, $wsDir);
+#CommitAll('Import latest code from DMS (3.0.8 aka 1.3) tree into DMS_1 stream.');
 
 sub StmName {
 	return "${depot}_${prepend}_" . $_[0];
 }
 
-sub VSSGetByDate {
+sub VSSManualGet {
 	my $ssPath = $_[0];
-	my $date = $_[1];
-	system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vd$date");
-	if ($?)
-	{
-		die "Failed to retrieve ss code by date for $date.";
-	}
+	my $label = $_[1];
+   print STDERR "Retrieve label \"$label\" from SourceSafe, then press Enter\n";
+   <STDIN>;
 	system('del *.scc /S /Q /F');
 	if ($?)
 	{
