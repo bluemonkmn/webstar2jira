@@ -4,7 +4,7 @@ use Date::Format;
 use Data::Printer;
 my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $depot = 'FSDS';
-my $prepend = 'Test1'; # prepended to created stream names in case multiple test imports need to be done.
+my $prepend = 'DS'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
 chdir "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate" or die 'Failed to set current directory.';
 
@@ -16,7 +16,7 @@ my $SPLabels = [
 	['2.1c_SP','2014-05-17T23:06:00']
 	];
 
-my $pid = open2(\*CHLD_OUT, \*CHLD_IN, "\"$accurev\" hist -s ${depot}_${prepend}2.1 -a -fe");
+my $pid = open2(\*CHLD_OUT, \*CHLD_IN, "\"$accurev\" hist -s ${depot}_${prepend}_2.1 -a -fe");
 my $tranNum;
 my %transDates =(); # key=AccuRev transaction number; value=array of dates of SS transactions included.
 while(<CHLD_OUT>)
@@ -45,7 +45,7 @@ for my $tx (@{$SPLabels})
 	my $lastTran = getTransNum($dt);
 	my $lastTranDt = time2str("%c", $transDates{$lastTran}->[0]);
 	print "$label -> $lastTran ($lastTranDt)\n";
-	MakeSnapshot($label, "${depot}_${prepend}2.1", $lastTran);
+	MakeSnapshot($label, "${depot}_${prepend}_2.1", $lastTran);
 }
 
 sub getTransNum {
@@ -67,7 +67,7 @@ sub getTransNum {
 }
 
 sub MakeSnapshot {
-	my $newStream = "${depot}_${prepend}" . $_[0];
+	my $newStream = "${depot}_${prepend}_" . $_[0];
 	my $basis = $_[1];
 	my $tranNum = $_[2];
 	die "Failed to specify time basis transaction number." if (not $tranNum);
