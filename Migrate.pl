@@ -4,25 +4,21 @@ use File::Path;
 my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $sscmd = 'c:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe';
 my $tmp = $ENV{'TMP'};
-my $depot = 'FSDS';
-my $prepend = 'DS'; # prepended to created stream names in case multiple test imports need to be done.
+my $depot = 'FSX';
+my $prepend = 'VisiWatch'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
 my $ssdb = 'C:\Users\bmarty\Downloads\DemandStream';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $sspin = '$/R73pin';
-my $ss74pin = '$/R74pin';
-my $ss73 = '$/R73';
-my $ss74 = '$/R74';
-my $ss75 = '$/R75';
+my $ssPath = '$/VisiWatch';
 
 LogMsg('Starting migration at ' . localtime());
 
 # 7.30
 $ENV{'SSDIR'}=$ssdb;
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
-VSSWorkFold($ss73pin, $wsDir);
+VSSWorkFold($ssPath, $wsDir);
 chdir $wsDir or die $!;
-VSSGet($ss73pin,'7.30');
+#VSSGet($ssPath,'7.30');
 CommitAll('Import FS Label 7.30');
 MakeSnapshot(StmName('7.30_GA'), $rootStream);
 MakeStream(StmName('7.30'), StmName('7.30_GA'));
