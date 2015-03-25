@@ -13,12 +13,37 @@ my $ssPath = '$/VisiWatch';
 
 LogMsg('Starting migration at ' . localtime());
 
-# 7.30
+# 2.5.5
 $ENV{'SSDIR'}=$ssdb;
+MakeStream($rootStream, $depot);
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
-VSSWorkFold($ssPath, $wsDir);
+mkdir "$wsDir\\Source";
+mkdir "$wsDir\\Install";
 chdir $wsDir or die $!;
-#VSSGet($ssPath,'7.30');
+VSSGet("$ssPath\\VisiWatch 2.5.5 Source", "$wsDir\\Source");
+VSSGet("$ssPath\\VisiWatch 2.5.5 Install", "$wsDir\\Install");
+CommitAll('Import VisiWatch 2.5.5 Source and Install code.');
+MakeSnapshot(StmName('2.5.5_SP'), $rootStream);
+RecursiveDelete();
+mkdir "$wsDir\\Source";
+mkdir "$wsDir\\Install";
+VSSGet("$ssPath\\VisiWatch 2.5.6 Source", "$wsDir\\Source");
+VSSGet("$ssPath\\VisiWatch 2.5.6", "$wsDir\\Install");
+CommitAll('Import VisiWatch 2.5.6 Source and Install code.');
+MakeSnapshot(StmName('2.5.6_SP'), $rootStream);
+chdir "$wsDir\\Source" or die $!;
+RecursiveDelete();
+VSSGet("$ssPath\\VisiWatch 2.5.6 Source", "$wsDir\\Source");
+VSSGet("$ssPath\\VisiWatch 2.5.6", "$wsDir\\Install");
+CommitAll('Import VisiWatch 2.5.6 Source and Install code.');
+MakeSnapshot(StmName('2.5.6_SP'), $rootStream);
+chdir $wsDir or die $!;
+RecursiveDelete();
+mkdir "$wsDir\\Source";
+mkdir "$wsDir\\Install";
+
+chdir $wsDir or die $!;
+
 CommitAll('Import FS Label 7.30');
 MakeSnapshot(StmName('7.30_GA'), $rootStream);
 MakeStream(StmName('7.30'), StmName('7.30_GA'));
@@ -48,14 +73,12 @@ sub StmName {
 
 sub VSSGet {
 	my $ssPath = $_[0];
-	my $label = $_[1];
-	print STDERR "From $ssPath retrieve label $label, then press enter to continue.\n";
-	<STDIN>;
-	#system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W -Vl$label");
-	#if ($?)
-	#{
-	#	die "Failed to retrieve $label";
-	#}
+	my $localPath = $_[1];
+	system("\"$sscmd\" Get \"$ssPath\" -GL -GWR -I-Y -W -Vl$label");
+	if ($?)
+	{
+		die "Failed to retrieve $label";
+	}
 	print STDERR "Proceeding with $label...\n";
 	system('del *.scc /S /Q /F');
 	if ($?)
