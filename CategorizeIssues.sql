@@ -24,7 +24,7 @@ DECLARE @ReleaseList TABLE (
    Sequence int NOT NULL
 )
 
-INSERT INTO @ReleaseList(Name, Sequence) VALUES('LEDO', 1)
+INSERT INTO @ReleaseList(Name, Sequence) VALUES('VISI', 1)
 
 DECLARE release_cursor CURSOR FAST_FORWARD LOCAL FOR
 SELECT Name FROM @ReleaseList
@@ -75,8 +75,8 @@ BEGIN
    BEGIN
       INSERT INTO StarMap..ReleaseIssues(SDRNum, ImportGroup, Branch, [Version])
       SELECT s.SDRNum, @CurRelease,
-      CASE WHEN s.Release IN (SELECT Name FROM @ReleaseList) AND s.Version != 'FSEVENT' THEN rd.JIRABranch ELSE MAX (ri.Branch) END,
-      CASE WHEN s.Release IN (SELECT Name FROM @ReleaseList) AND s.Version != 'FSEVENT' THEN rd.AffectsVersion ELSE MAX(ri.[Version]) END
+      CASE WHEN s.Release IN (SELECT Name FROM @ReleaseList) THEN rd.JIRABranch ELSE MAX (ri.Branch) END,
+      CASE WHEN s.Release IN (SELECT Name FROM @ReleaseList) THEN rd.AffectsVersion ELSE MAX(ri.[Version]) END
       FROM StarMap..ReleaseIssues ri
       JOIN STAR..Resolution_SDRs rs ON ri.TransmittalId = rs.TransmittalID
       JOIN STAR..sdr s on s.SDRNum = rs.SDR_Num

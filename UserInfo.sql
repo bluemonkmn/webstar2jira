@@ -3,7 +3,7 @@ case when CHARINDEX(',', ExchangeName) > 1
 then LTRIM(SUBSTRING(ExchangeName, CHARINDEX(',', ExchangeName)+1, 35))
 + ' ' + SUBSTRING(ExchangeName, 1, CHARINDEX(',', ExchangeName)-1) 
 else ExchangeName end FullName,
-Access, EmailAddr
+Access
 into StarMap..UserInfo
 from STAR..UserInfo
 
@@ -44,6 +44,20 @@ update UserInfo set FullName = 'Li Wenjian' where FullName = 'Wenjian Li'
 update UserInfo set FullName = 'Meng Xiangjun' where FullName = 'Xiangjun Meng'
 update UserInfo set FullName = 'Zhang Xiaomin' where FullName = 'Xiaomin Zhang'
 
-update UserInfo set EmailAddr = 'andy.wallace@infor.com' where NTUserName = 'infor\awallace'
-update UserInfo set EmailAddr = 'jian.wang@infor.com' where NTUserName = 'infor\jwang4'
-update UserInfo set EmailAddr = 'jin.yang@infor.com' where NTUserName = 'infor\yjin2'
+ALTER TABLE UserInfo add EmailAddr nvarchar(64) null
+
+UPDATE UserInfo SET EmailAddr = 'ben.marty@infor.com' WHERE NTUserName = 'infor\bmarty'
+UPDATE UserInfo SET EmailAddr = 'Brett.Murr@infor.com' WHERE NTUserName = 'infor\bmurr'
+UPDATE UserInfo SET EmailAddr = 'duane.matheson@infor.com' WHERE NTUserName = 'infor\dmatheson'
+UPDATE UserInfo SET EmailAddr = 'dick.schultz@infor.com' WHERE NTUserName = 'infor\dschultz'
+UPDATE UserInfo SET EmailAddr = 'gregory.vanyo@infor.com' WHERE NTUserName = 'infor\gvanyo'
+UPDATE UserInfo SET EmailAddr = 'Jamie.Bixby@infor.com' WHERE NTUserName = 'infor\jbixby'
+UPDATE UserInfo SET EmailAddr = 'Jie.Liu@infor.com' WHERE NTUserName = 'infor\jliu'
+UPDATE UserInfo SET EmailAddr = 'jim.moe@infor.com' WHERE NTUserName = 'infor\jmoe'
+UPDATE UserInfo SET EmailAddr = 'julie.weeks-freedman@infor.com' WHERE NTUserName = 'infor\jweeks-freedman'
+UPDATE UserInfo SET EmailAddr = 'Jie.Zhang@infor.com' WHERE NTUserName = 'infor\jzhang2'
+UPDATE UserInfo SET EmailAddr = 'Karen.Bottorff@infor.com' WHERE NTUserName = 'infor\kbottorff'
+UPDATE UserInfo SET EmailAddr = 'Min.Ye@infor.com' WHERE NTUserName = 'infor\mye'
+UPDATE UserInfo SET EmailAddr = 'sara.johnson@infor.com' WHERE NTUserName = 'infor\sjohnson'
+UPDATE UserInfo SET EmailAddr = 'susan.keim@infor.com' WHERE NTUserName = 'infor\skeim'
+UPDATE UserInfo SET EmailAddr = 'sheila.yates@infor.com' WHERE NTUserName = 'infor\syates'

@@ -37,6 +37,9 @@ if (lc $ARGV[0] eq 'u')
 }
 my $releaseList = join(',', map { "'$_'" } @ARGV);
 
+
+$userMap{'NON'} = {name=>'WebStar_NON', active=>JSON::false, email=>'NON@softbrands.com',fullname=>'NONE'};
+
 while (my @userInfo = $sth->fetchrow_array())
 {	
 	$userInfo[0] =~ /^([^\\]*)\\(\S*)\s*$/ or die 'Failed to parse ' . $userInfo[0];
@@ -171,7 +174,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	$hashref->{'affectedVersions'} = [$hashref->{'affectedVersions'}];
 	$sdrLookup{$hashref->{'SDRNum'}} = $hashref;
 	$hashref->{customFieldValues} = [
-		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FSLEDO-SDR' . $hashref->{SDRNum}}
+		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FSVW-SDR' . $hashref->{SDRNum}}
 	];
 	if ($hashref->{ReportedPriority})
 	{
@@ -561,7 +564,7 @@ while (my $hashref = $sth->fetchrow_hashref())
 	}
 	
 	@resolution{customFieldValues} = [
-		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FSLEDO-TR' . $resolution{TransmittalId}},
+		{fieldName=>'ExternalID',fieldType=>'com.atlassian.jira.plugin.system.customfieldtypes:textfield',value=>'FSVW-TR' . $resolution{TransmittalId}},
 		{fieldName=>'Branch',value=>$resolution{Branch},fieldType=>'com.lawson.tools.jira.customfields:jira-integration-only-field'}
 	];
 	
@@ -852,7 +855,7 @@ if ($userCSVMode) {
 	}
 } else {
 	my %import = (users => [sort { $a->{name} cmp $b->{name} } values %usersUsed],
-		projects => [{name=>'Fourth Shift - LEDO', key=>'FSLEDO',
+		projects => [{name=>'Fourth Shift - VisiWatch', key=>'FSVW',
 		components=>[sort keys %component_list], versions=>[map({name=>$_}, sort keys %version_list)],
 		issues=>[sort { $a->{externalId} cmp $b->{externalId} } (values %sdrLookup, values %resolutions)]}],
 		links=>\@links);
