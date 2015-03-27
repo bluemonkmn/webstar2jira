@@ -82,6 +82,7 @@ chdir "$wsDir\\Source" or die $!;
 unlink glob "$wsDir\\Source\\*.log" or die $!;
 unlink glob "$wsDir\\Source\\*.bak" or die $!;
 unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
+unlink "$wsDir\\Source\\tracetest.txt" or die $!;
 CommitAll('Import VisiWatch 2.6 Source.');
 MakeSnapshot(StmName('2.6_SP'), $rootStream);
 # 2.6 HF001
@@ -115,6 +116,7 @@ VSSGetLabel("$ssPath/VisiWatch 2.6.x/VisiWatch 2.6.x Source/*", "$wsDir\\Source"
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/*", "$wsDir\\Install\\Script Files", '2.6.2');
 VSSGetLabel("$ssPath/VisiWatch 2.6.x.ism", "$wsDir\\Install", '2.6.2');
 unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
+unlink glob "$wsDir\\Source\\*.bak" or die $!;
 rename "$wsDir\\Install\\VisiWatch 2.6.x.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
 unlink "$wsDir\\Install\\Script Files\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
 unlink "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.doc" or die $!;
@@ -125,6 +127,8 @@ mkdir "$wsDir\\Install\\Required_MSM_IS2014" or die $!;
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/Required_MSM_IS2014/*", "$wsDir\\Install\\Required_MSM_IS2014", '2.6.2');
 mkdir "$wsDir\\Install\\Required_MSM_IS2014\\modules_i386" or die $!;
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/Required_MSM_IS2014/moudules_i386/*", "$wsDir\\Install\\Required_MSM_IS2014\\modules_i386", '2.6.2');
+mkdir "$wsDir\\Third Party Software";
+VSSGet("$ssPath/Third Party Software/*", "$wsDir\\Third Party Software");
 CommitAll('Import VisiWatch 2.6.2 Source and Install code.');
 MakeSnapshot(StmName('2.6.2_SP'), $rootStream);
 
