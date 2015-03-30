@@ -1,145 +1,95 @@
 use IPC::Open3;
 use Data::Printer;
-use File::Path;
+use File::Path qw(remove_tree rmtree);
 my $accurev = 'c:\Program Files (x86)\AccuRev\bin\accurev.exe';
 my $sscmd = 'c:\Program Files (x86)\Microsoft Visual SourceSafe\ss.exe';
 my $tmp = $ENV{'TMP'};
 my $depot = 'FSX';
-my $prepend = 'VisiWatch'; # prepended to created stream names in case multiple test imports need to be done.
+my $prepend = 'DemandStream'; # prepended to created stream names in case multiple test imports need to be done.
 my $rootStream = $prepend ? "${depot}_${prepend}" : $depot;
 my $ssdb = 'C:\Users\bmarty\Downloads\DemandStream';
 my $wsDir = "C:\\Users\\bmarty\\AccuRev\\${depot}_${prepend}Migrate";
-my $ssPath = '$/VisiWatch';
 
 LogMsg('Starting migration at ' . localtime());
 
-# 2.5.5
+# 2.1
 $ENV{'SSDIR'}=$ssdb;
 MakeStream($rootStream, $depot);
 MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
-mkdir "$wsDir\\Source" or die $!;
-mkdir "$wsDir\\Install" or die $!;
-mkdir "$wsDir\\Install\\Script Files" or die $!;
 chdir $wsDir or die $!;
-VSSGet("$ssPath/VisiWatch 2.5.5 Source/*", "$wsDir\\Source");
-VSSGet("$ssPath/VisiWatch 2.5.5 Install/*", "$wsDir\\Install\\Script Files");
-VSSGet("$ssPath/VisiWatch 2.5.5.ism", "$wsDir\\Install");
-rename "$wsDir\\Install\\VisiWatch 2.5.5.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
-unlink "$wsDir\\Source\\Visiwatch.exe" or die $!;
-unlink "$wsDir\\Source\\crystal.bak" or die $!;
-CommitAll('Import VisiWatch 2.5.5 Source and Install code.');
-MakeSnapshot(StmName('2.5.5_SP'), $rootStream);
-# 2.5.6
+VSSWorkFold('$/r2.1', $wsDir);
+VSSGetLatest('$/r2.1');
+remove_tree("$wsDir\\Visiwatch");
+CommitAll('Import DemandStream 2.1 tree from SourceSafe.');
+MakeSnapshot(StmName('2.1_SP'), $rootStream);
+# 2.1a
 RecursiveDelete();
-mkdir "$wsDir\\Source" or die $!;
-mkdir "$wsDir\\Install" or die $!;
-mkdir "$wsDir\\Install\\Script Files" or die $!;
-VSSGet("$ssPath/VisiWatch 2.5.6 Source/*", "$wsDir\\Source");
-VSSGet("$ssPath/VisiWatch 2.5.6/*", "$wsDir\\Install\\Script Files");
-VSSGet("$ssPath/VisiWatch 2.5.6.ism", "$wsDir\\Install");
-rename "$wsDir\\Install\\VisiWatch 2.5.6.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
-rename "$wsDir\\Source\\VW256ReleaseNotes.doc", "$wsDir\\VW256ReleaseNotes.doc" or die $!;
-unlink "$wsDir\\Source\\VisiWatch.exe" or die $!;
-unlink "$wsDir\\Source\\ReleaseNotes.pdf" or die $!;
-unlink "$wsDir\\Source\\ReleaseNotes.chm" or die $!;
-CommitAll('Import VisiWatch 2.5.6 Source and Install code.');
-MakeSnapshot(StmName('2.5.6_SP'), $rootStream);
-# 2.5.7
-chdir "$wsDir\\Source" or die $!;
+VSSWorkFold('$/r2.1a', $wsDir);
+VSSGetLatest('$/r2.1a');
+remove_tree("$wsDir\\Visiwatch");
+CommitAll('Import DemandStream 2.1a tree from SourceSafe.');
+MakeSnapshot(StmName('2.1a_SP'), $rootStream);
+# 2.1b
 RecursiveDelete();
-VSSGet("$ssPath/VisiWatch 2.5.7 Source/*", "$wsDir\\Source");
-CommitAll('Import VisiWatch 2.5.7 Source.');
-MakeSnapshot(StmName('2.5.7_SP'), $rootStream);
-# 2.5.8
+VSSWorkFold('$/r2.1b', $wsDir);
+VSSGetLatest('$/r2.1b');
+remove_tree("$wsDir\\Visiwatch");
+CommitAll('Import DemandStream 2.1b tree from SourceSafe.');
+MakeSnapshot(StmName('2.1b_SP'), $rootStream);
+# HotfixB
+MakeStream(StmName('2.1b_WorkComplete'), StmName('2.1b_SP'));
+ReparentWorkspace(StmName('Migrate'), StmName('2.1b_WorkComplete'));
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/AlterMRM21b.sql', "$wsDir\\Source\\Scripts\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/ds_mrm.vbp', "$wsDir\\Source\\App\\Win\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/frmITEM_Import.frm', "$wsDir\\Source\\App\\Win\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/usp_ERP_MRM_VendorUpdate.sql', "$wsDir\\Source\\Scripts\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/usp_ERP_MRMLoadBillMaster.sql', "$wsDir\\Source\\Scripts\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/usp_MRMSynchronizeVendorItems.sql', "$wsDir\\Source\\Scripts\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 001/usp_MRMSynchronizeVendors.sql', "$wsDir\\Source\\Scripts\\MRM");
+CommitAll('Import DemandStream 2.1b hotfix 1 from SourceSafe.');
+VSSGetTo('$/r2.1HotfixB/Hotfix 002/frmAAM_AddBuyerActivity.frm', "$wsDir\\Source\\App\\Win\\AAM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 002/prjDS_AAM.vbp', "$wsDir\\Source\\App\\Win\\AAM");
+CommitAll('Import DemandStream 2.1b hotfix 2 from SourceSafe.');
+VSSGetTo('$/r2.1HotfixB/Hotfix 003/ds_mrm.vbp', "$wsDir\\Source\\App\\Win\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 003/frmITEM_Manage.frm', "$wsDir\\Source\\App\\Win\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 003/usp_ERP_MRMFetchBillParents.sql', "$wsDir\\Source\\Scripts\\MRM");
+VSSGetTo('$/r2.1HotfixB/Hotfix 003/usp_ERP_MRMItemBillUpdate.sql', "$wsDir\\Source\\Scripts\\MRM");
+CommitAll('Import DemandStream 2.1b hotfix 3 from SourceSafe.');
+VSSGetTo('$/r2.1HotfixB/Hotfix 004/usp_SCEKanbanCardXMLExportRetrieve.sql', "$wsDir\\Source\\Scripts\\SCE");
+CommitAll('Import DemandStream 2.1b hotfix 4 from SourceSafe.');
+ReparentWorkspace(StmName('Migrate'), $rootStream);
+# 2.1c
 RecursiveDelete();
-VSSGet("$ssPath/VisiWatch 2.5.8/*", "$wsDir\\Source");
-unlink glob "$wsDir\\Source\\*.log" or die $!;
-unlink "$wsDir\\Source\\VisiWatch.exe" or die $!;
-unlink "$wsDir\\Source\\VisiWatch.bak" or die $!;
-unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
-CommitAll('Import VisiWatch 2.5.8 Source.');
-MakeSnapshot(StmName('2.5.8_SP'), $rootStream);
-# 2.5.9
+VSSWorkFold('$/r2.1c', $wsDir);
+VSSGetLatest('$/r2.1c');
+remove_tree("$wsDir\\Visiwatch");
+CommitAll('Import DemandStream 2.1c tree from SourceSafe.');
+MakeSnapshot(StmName('2.1c_SP'), $rootStream);
+# HotfixC
+MakeStream(StmName('2.1c_WorkComplete'), StmName('2.1c_SP'));
+ReparentWorkspace(StmName('Migrate'), StmName('2.1c_WorkComplete'));
+VSSGetTo('$/r2.1HotfixC/Hotfix 001/DS_DIM.bas', "$wsDir\\Source\\DLE");
+VSSGetTo('$/r2.1HotfixC/Hotfix 001/usp_ERP_DLEGetAllocDeficientDate.sql', "$wsDir\\Source\\Scripts\\DLE");
+CommitAll('Import DemandStream 2.1c hotfix from SourceSafe.');
+ReparentWorkspace(StmName('Migrate'), $rootStream);
+# 2.1d
 RecursiveDelete();
-VSSGet("$ssPath/VisiWatch 2.5.9/*", "$wsDir\\Source");
-rename "$wsDir\\Source\\VW258ReleaseNotes.doc", "$wsDir\\VW258ReleaseNotes.doc" or die $!;
-unlink "$wsDir\\Source\\VW_2581_Test.zip" or die $!;
-unlink "$wsDir\\Source\\Visiwatch258.zip" or die $!;
-unlink "$wsDir\\Source\\Visiwatch.exe" or die $!;
-unlink glob "$wsDir\\Source\\*.log" or die $!;
-unlink glob "$wsDir\\Source\\*.bak" or die $!;
-unlink "$wsDir\\Source\\test.bas" or die $!;
-unlink "$wsDir\\Source\\tracetest.txt" or die $!;
-unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
-CommitAll('Import VisiWatch 2.5.9 Source.');
-MakeSnapshot(StmName('2.5.9_SP'), $rootStream);
-# 2.6
-RecursiveDelete();
-VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/*", "$wsDir\\Source");
-chdir $wsDir or die $!; # Make sure *.scc gets deleted in all directories below here during Get
-VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/Support/VisiWatch_26_ReleaseNotes.doc", $wsDir);
-chdir "$wsDir\\Source" or die $!;
-unlink glob "$wsDir\\Source\\*.log" or die $!;
-unlink glob "$wsDir\\Source\\*.bak" or die $!;
-unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
-unlink "$wsDir\\Source\\tracetest.txt" or die $!;
-CommitAll('Import VisiWatch 2.6 Source.');
-MakeSnapshot(StmName('2.6_SP'), $rootStream);
-# 2.6 HF001
-VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/HF001/*", "$wsDir\\Source");
-unlink "$wsDir\\Source\\Visiwatch.exe" or die $!;
-CommitAll('Import VisiWatch 2.6 HF001 Source.');
-MakeSnapshot(StmName('2.6_HF001_SP'), $rootStream);
-# 2.6.1
-chdir $wsDir or die $!;
-RecursiveDelete();
-mkdir "$wsDir\\Source" or die $!;
-mkdir "$wsDir\\Install" or die $!;
-mkdir "$wsDir\\Install\\Script Files" or die $!;
-VSSGetLabel("$ssPath/VisiWatch 2.6.x/VisiWatch 2.6.x Source/*", "$wsDir\\Source", '2.6.1'); # 10/20/2014 2:35p
-VSSGetLabel("$ssPath/VisiWatch 2.6.x/*", "$wsDir\\Install\\Script Files", '2.6.1');
-VSSGet("$ssPath/VisiWatch 2.6.1.ism", "$wsDir\\Install");
-rename "$wsDir\\Install\\VisiWatch 2.6.1.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
-unlink glob "$wsDir\\Source\\*.bak" or die $!;
-unlink "$wsDir\\Install\\Script Files\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
-unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
-rename "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.doc", "$wsDir\\VisiWatch_ReleaseNotes.doc" or die $!;
-rename "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.pdf", "$wsDir\\VisiWatch_ReleaseNotes.pdf" or die $!;
-CommitAll('Import VisiWatch 2.6.1 Source and Install code.');
-MakeSnapshot(StmName('2.6.1_SP'), $rootStream);
-# 2.6.2
-RecursiveDelete();
-mkdir "$wsDir\\Source" or die $!;
-mkdir "$wsDir\\Install" or die $!;
-mkdir "$wsDir\\Install\\Script Files" or die $!;
-VSSGetLabel("$ssPath/VisiWatch 2.6.x/VisiWatch 2.6.x Source/*", "$wsDir\\Source", '2.6.2'); # 02/09/2015 11:01a
-VSSGetLabel("$ssPath/VisiWatch 2.6.x/*", "$wsDir\\Install\\Script Files", '2.6.2');
-VSSGetLabel("$ssPath/VisiWatch 2.6.x.ism", "$wsDir\\Install", '2.6.2');
-unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
-unlink glob "$wsDir\\Source\\*.bak" or die $!;
-rename "$wsDir\\Install\\VisiWatch 2.6.x.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
-unlink "$wsDir\\Install\\Script Files\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
-unlink "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.doc" or die $!;
-unlink "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
-rename "$wsDir\\Source\\VisiWatch_262_ReleaseNotes.doc", "$wsDir\\VisiWatch_ReleaseNotes.doc" or die $!;
-rename "$wsDir\\Source\\VisiWatch_262_ReleaseNotes.pdf", "$wsDir\\VisiWatch_ReleaseNotes.pdf" or die $!;
-mkdir "$wsDir\\Install\\Required_MSM_IS2014" or die $!;
-VSSGetLabel("$ssPath/VisiWatch 2.6.x/Required_MSM_IS2014/*", "$wsDir\\Install\\Required_MSM_IS2014", '2.6.2');
-mkdir "$wsDir\\Install\\Required_MSM_IS2014\\modules_i386" or die $!;
-VSSGetLabel("$ssPath/VisiWatch 2.6.x/Required_MSM_IS2014/moudules_i386/*", "$wsDir\\Install\\Required_MSM_IS2014\\modules_i386", '2.6.2');
-mkdir "$wsDir\\Third Party Software";
-VSSGet("$ssPath/Third Party Software/*", "$wsDir\\Third Party Software");
-CommitAll('Import VisiWatch 2.6.2 Source and Install code.');
-MakeSnapshot(StmName('2.6.2_SP'), $rootStream);
+VSSWorkFold('$/r2.1d', $wsDir);
+VSSGetLatest('$/r2.1d');
+remove_tree("$wsDir\\Visiwatch");
+mkdir "$wsDir\\Utilities";
+VSSWorkFold('$/Utilities', "$wsDir\\Utilities");
+VSSGetLatest('$/Utilities');
+remove_tree("$wsDir\\Utilities\\VSSPinTool");
+CommitAll('Import DemandStream 2.1d tree and Utilities tree from SourceSafe.');
 
 sub StmName {
 	return "${depot}_${prepend}_" . $_[0];
 }
 
-sub VSSGet {
+sub VSSGetLatest {
 	my $ssPath = $_[0];
-	my $localPath = $_[1];
-	system("\"$sscmd\" Get \"$ssPath\" -GL\"$localPath\" -GWR -I-Y -W");
+	system("\"$sscmd\" Get \"$ssPath\" -R -GF -GWR -I-Y -W");
 	if ($?)
 	{
 		die "Failed to retrieve $ssPath";
@@ -156,24 +106,33 @@ sub VSSGet {
 	}
 }
 
-sub VSSGetLabel {
+sub VSSWorkFold {
 	my $ssPath = $_[0];
 	my $localPath = $_[1];
-   my $label = $_[2];
-	system("\"$sscmd\" Get \"$ssPath\" -GL\"$localPath\" -GWR -I-Y -W -Vl$label");
+	system("\"$sscmd\" Workfold $ssPath \"$localPath\"");
 	if ($?)
 	{
 		die "Failed to retrieve $label";
 	}
+}
+
+sub VSSGetTo {
+	my $ssPath = $_[0];
+	my $localPath = $_[1];
+	system("\"$sscmd\" Get \"$ssPath\" -GL\"$localPath\" -GWR -I-Y -W");
+	if ($?)
+	{
+		die "Failed to retrieve $ssPath";
+	}
 	system('del *.scc /S /Q /F');
 	if ($?)
 	{
-		die "Failed to clean up *.scc files after retrieving code for label $label.";
+		die "Failed to clean up *.scc files after retrieving code for $ssPath.";
 	}
 	system('del *.scc /S /Q /F /AH');
 	if ($?)
 	{
-		die "Failed to clean up *.scc files after retrieving code for label $label.";
+		die "Failed to clean up *.scc files after retrieving code for $ssPath.";
 	}
 }
 
