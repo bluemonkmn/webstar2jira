@@ -76,8 +76,16 @@ MakeSnapshot(StmName('2.5.9_SP'), $rootStream);
 # 2.6
 RecursiveDelete();
 VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/*", "$wsDir\\Source");
-chdir $wsDir or die $!; # Make sure *.scc gets deleted in all directories below here during Get
-VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/Support/VisiWatch_26_ReleaseNotes.doc", $wsDir);
+mkdir "$wsDir\\Install\\Support" or die $!;
+chdir "$wsDir\\Install\\Support" or die $!; # Make sure *.scc gets deleted in all directories below here during Get
+VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/Support/*", "$wsDir\\Install\\Support");
+rename "$wsDir\\Install\\Support\\VisiWatch_26_ReleaseNotes.doc", "$wsDir\\VisiWatch_26_ReleaseNotes.doc" or die $!;
+rename "$wsDir\\Install\\Support\\VisiWatch_26_ReleaseNotes.pdf", "$wsDir\\VisiWatch_26_ReleaseNotes.pdf" or die $!;
+unlink "$wsDir\\Install\\Support\\vw_sql_upgrade.sql" or die $!;
+unlink "$wsDir\\Install\\Support\\vw_sql_db.sql" or die $!;
+unlink "$wsDir\\Install\\Support\\VisiWatch.exe" or die $!;
+rename "$wsDir\\Install\\Support\\vwdeveloper.chm", "$wsDir\\Source\\vwdeveloper.chm" or die $!;
+rename "$wsDir\\Install\\Support\\vwuser.chm", "$wsDir\\Source\\vwuser.chm" or die $!;
 chdir "$wsDir\\Source" or die $!;
 unlink glob "$wsDir\\Source\\*.log" or die $!;
 unlink glob "$wsDir\\Source\\*.bak" or die $!;
@@ -96,9 +104,20 @@ RecursiveDelete();
 mkdir "$wsDir\\Source" or die $!;
 mkdir "$wsDir\\Install" or die $!;
 mkdir "$wsDir\\Install\\Script Files" or die $!;
+mkdir "$wsDir\\Install\\Support" or die $!;
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/VisiWatch 2.6.x Source/*", "$wsDir\\Source", '2.6.1'); # 10/20/2014 2:35p
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/*", "$wsDir\\Install\\Script Files", '2.6.1');
 VSSGet("$ssPath/VisiWatch 2.6.1.ism", "$wsDir\\Install");
+VSSGet("$ssPath/VisiWatch 2.6/VisiWatch 2.6/Support/*", "$wsDir\\Install\\Support");
+unlink "$wsDir\\Install\\Support\\VisiWatch_26_ReleaseNotes.doc" or die $!;
+unlink "$wsDir\\Install\\Support\\VisiWatch_26_ReleaseNotes.pdf" or die $!;
+unlink "$wsDir\\Install\\Support\\vwdeveloper.chm" or die $!;
+unlink "$wsDir\\Install\\Support\\vwuser.chm" or die $!;
+unlink "$wsDir\\Install\\Support\\vw_sql_upgrade.sql" or die $!;
+unlink "$wsDir\\Install\\Support\\vw_sql_db.sql" or die $!;
+unlink "$wsDir\\Install\\Support\\VisiWatch.exe" or die $!;
+unlink "$wsDir\\Install\\Script Files\\vwdeveloper.chm" or die $!;
+unlink "$wsDir\\Install\\Script Files\\vwuser.chm" or die $!;
 rename "$wsDir\\Install\\VisiWatch 2.6.1.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
 unlink glob "$wsDir\\Source\\*.bak" or die $!;
 unlink "$wsDir\\Install\\Script Files\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
@@ -108,16 +127,19 @@ rename "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.pdf", "$wsDir\\VisiWatch_Rele
 CommitAll('Import VisiWatch 2.6.1 Source and Install code.');
 MakeSnapshot(StmName('2.6.1_SP'), $rootStream);
 # 2.6.2
+chdir "$wsDir\\Source" or die $!;
 RecursiveDelete();
-mkdir "$wsDir\\Source" or die $!;
-mkdir "$wsDir\\Install" or die $!;
-mkdir "$wsDir\\Install\\Script Files" or die $!;
+chdir "$wsDir\\Install\\Script Files" or die $!;
+RecursiveDelete();
+chdir $wsDir or die $!;
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/VisiWatch 2.6.x Source/*", "$wsDir\\Source", '2.6.2'); # 02/09/2015 11:01a
 VSSGetLabel("$ssPath/VisiWatch 2.6.x/*", "$wsDir\\Install\\Script Files", '2.6.2');
 VSSGetLabel("$ssPath/VisiWatch 2.6.x.ism", "$wsDir\\Install", '2.6.2');
 unlink "$wsDir\\Source\\Visiwatch.asc" or die $!;
 unlink glob "$wsDir\\Source\\*.bak" or die $!;
 rename "$wsDir\\Install\\VisiWatch 2.6.x.ism", "$wsDir\\Install\\VisiWatch.ism" or die $!;
+unlink "$wsDir\\Install\\Script Files\\vwdeveloper.chm" or die $!;
+unlink "$wsDir\\Install\\Script Files\\vwuser.chm" or die $!;
 unlink "$wsDir\\Install\\Script Files\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
 unlink "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.doc" or die $!;
 unlink "$wsDir\\Source\\VisiWatch_261_ReleaseNotes.pdf" or die $!;
