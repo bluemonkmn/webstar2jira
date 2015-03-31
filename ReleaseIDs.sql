@@ -26,7 +26,7 @@ update ReleaseIDs set HotfixLabel = 'HotFix'
 , AffectsVersion = left(AffectsVersion, len(AffectsVersion)-1)
 where RIGHT(ReleaseID, 1) ='H'
 
-update ReleaseIDs set IsReleased = 0 where ReleaseID in ('Visiwatch 2.6.3')
+update ReleaseIDs set IsReleased = 0 where ReleaseID in ('Visiwatch 2.6.3', 'DmndStr 2.1d')
 
 update ReleaseIDs set FixedVersion = AffectsVersion
 
@@ -34,4 +34,6 @@ update ReleaseIDs set JIRABranch = 'VW_DEV' where ReleaseLev = 'VISI'
 update ReleaseIDs set FixedVersion = 'VW_DEV', AffectsVersion = 'VW_DEV', IsReleased = 0 where AffectsVersion = '2.6.3'
 
 update ReleaseIDs set JIRABranch = 'DS_DEV' where ReleaseLev = 'DMNDSTR' and HotfixLabel is null
-update ReleaseIDs set JIRABranch = REPLACE(FixedVersion, '.'  , '_') where HotfixLabel is not null
+update ReleaseIDs set FixedVersion = 'DS_DEV' where ReleaseLev = 'DMNDSTR' and HotfixLabel is null and IsReleased = 0
+update ReleaseIDs set JIRABranch = REPLACE(FixedVersion, '.'  , '_') where HotfixLabel is not null and IsReleased = 1
+update ReleaseIDs set FixedVersion = JIRABranch where HotfixLabel is not null
