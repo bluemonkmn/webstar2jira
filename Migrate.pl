@@ -19,21 +19,18 @@ MakeWorkspace(StmName('Migrate'), $rootStream, $wsDir);
 chdir $wsDir or die $!;
 VSSWorkFold('$/r2.1', $wsDir);
 VSSGetLatest('$/r2.1');
-remove_tree("$wsDir\\Visiwatch");
 CommitAll('Import DemandStream 2.1 tree from SourceSafe.');
 MakeSnapshot(StmName('2.1_SP'), $rootStream);
 # 2.1a
 RecursiveDelete();
 VSSWorkFold('$/r2.1a', $wsDir);
 VSSGetLatest('$/r2.1a');
-remove_tree("$wsDir\\Visiwatch");
 CommitAll('Import DemandStream 2.1a tree from SourceSafe.');
 MakeSnapshot(StmName('2.1a_SP'), $rootStream);
 # 2.1b
 RecursiveDelete();
 VSSWorkFold('$/r2.1b', $wsDir);
 VSSGetLatest('$/r2.1b');
-remove_tree("$wsDir\\Visiwatch");
 CommitAll('Import DemandStream 2.1b tree from SourceSafe.');
 MakeSnapshot(StmName('2.1b_SP'), $rootStream);
 # HotfixB
@@ -62,7 +59,6 @@ ReparentWorkspace(StmName('Migrate'), $rootStream);
 RecursiveDelete();
 VSSWorkFold('$/r2.1c', $wsDir);
 VSSGetLatest('$/r2.1c');
-remove_tree("$wsDir\\Visiwatch");
 CommitAll('Import DemandStream 2.1c tree from SourceSafe.');
 MakeSnapshot(StmName('2.1c_SP'), $rootStream);
 # HotfixC
@@ -76,7 +72,6 @@ ReparentWorkspace(StmName('Migrate'), $rootStream);
 RecursiveDelete();
 VSSWorkFold('$/r2.1d', $wsDir);
 VSSGetLatest('$/r2.1d');
-remove_tree("$wsDir\\Visiwatch");
 mkdir "$wsDir\\Utilities";
 VSSWorkFold('$/Utilities', "$wsDir\\Utilities");
 VSSGetLatest('$/Utilities');
