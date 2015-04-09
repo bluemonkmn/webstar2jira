@@ -25,6 +25,7 @@ MakeSnapshot(StmName('2.1_SP'), $rootStream);
 RecursiveDelete();
 VSSWorkFold('$/r2.1a', $wsDir);
 VSSGetLatest('$/r2.1a');
+AccuRev('add -E binary Help\en-US\DemandStreamHelp.pdf',"Individual import of PDF as binary for DemandStream 2.1a", 1);
 CommitAll('Import DemandStream 2.1a tree from SourceSafe.');
 MakeSnapshot(StmName('2.1a_SP'), $rootStream);
 # 2.1b
