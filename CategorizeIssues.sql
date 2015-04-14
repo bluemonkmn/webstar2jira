@@ -52,7 +52,7 @@ INSERT INTO @ReleaseList(Name, Sequence) VALUES('DmndStr 2.1d', 4)
    -- Add all SDRs in the this release that are not linked to any included
    -- transmittal (for any included release) nor already included.
    INSERT INTO StarMap..ReleaseIssues(SDRNum, ImportGroup, Branch, [Version])
-   SELECT s.SDRNum, s.Release, rd.JIRABranch, rd.AffectsVersion
+   SELECT s.SDRNum, 'DMNDSTR', rd.JIRABranch, rd.AffectsVersion
    FROM STAR..sdr s
    LEFT JOIN (
       SELECT rs.SDR_Num, COUNT(*) TransmittalCount
@@ -60,7 +60,7 @@ INSERT INTO @ReleaseList(Name, Sequence) VALUES('DmndStr 2.1d', 4)
       JOIN STAR..resolution r ON r.TransmittalId = rs.TransmittalID
       AND r.RlsLevelTarget IN (SELECT Name FROM @ReleaseList)
       GROUP BY rs.SDR_Num) tc ON s.SDRNum = tc.SDR_Num
-   JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = s.Release and rd.ReleaseID = s.[Version]
+   JOIN StarMap..ReleaseIDs rd on rd.ReleaseLev = case when s.Release = 'DMNDSRT' then 'DMNDSTR' else s.Release end and rd.ReleaseID = s.[Version]
    LEFT JOIN StarMap..ReleaseIssues ri on ri.SDRNum = s.SDRNum
    WHERE ISNULL(tc.TransmittalCount, 0) = 0 AND s.[Version] IN (SELECT Name FROM @ReleaseList)
    AND ri.ImportGroup IS NULL

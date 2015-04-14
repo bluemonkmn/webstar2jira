@@ -34,6 +34,6 @@ update ReleaseIDs set JIRABranch = 'VW_DEV' where ReleaseLev = 'VISI'
 update ReleaseIDs set FixedVersion = 'VW_DEV', AffectsVersion = 'VW_DEV', IsReleased = 0 where AffectsVersion = '2.6.3'
 
 update ReleaseIDs set JIRABranch = 'DS_DEV' where ReleaseLev = 'DMNDSTR' and HotfixLabel is null
-update ReleaseIDs set FixedVersion = 'DS_DEV' where ReleaseLev = 'DMNDSTR' and HotfixLabel is null and IsReleased = 0
+update ReleaseIDs set FixedVersion = 'DS_DEV', AffectsVersion = 'DS_DEV' where ReleaseLev = 'DMNDSTR' and HotfixLabel is null and IsReleased = 0
 update ReleaseIDs set JIRABranch = REPLACE(FixedVersion, '.'  , '_') where HotfixLabel is not null and IsReleased = 1
 update ReleaseIDs set FixedVersion = JIRABranch where HotfixLabel is not null
